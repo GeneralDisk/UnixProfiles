@@ -28,7 +28,7 @@ cp $DIR/.bash_functions $DEST_DIR
 cp $DIR/.bash_logout $DEST_DIR
 cp $DIR/.bashrc $DEST_DIR
 cp $DIR/.vimrc $DEST_DIR
-cp -R $DIR/.vim $DEST_DIR
+#cp -R $DIR/.vim $DEST_DIR
 #cp -R $DIR/.ssh $DEST_DIR
 
 echo "Done."

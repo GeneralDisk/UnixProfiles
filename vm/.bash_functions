@@ -1,4 +1,5 @@
 # Bash functions file
+# Author: Maris Kali
 
 TESTBED=''
 PYTEST_SOURCE=":/home/mkali/fixtestenv/bin:"
