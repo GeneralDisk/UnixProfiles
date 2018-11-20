@@ -27,7 +27,7 @@ cp $DIR/vm/.bash_functions $DEST_DIR
 cp $DIR/vm/.bash_logout $DEST_DIR
 cp $DIR/vm/.bashrc $DEST_DIR
 cp $DIR/vm/.vimrc $DEST_DIR
-cp -R $DIR/vm/.vim $DEST_DIR
+#cp -R $DIR/vm/.vim $DEST_DIR
 #cp -R $DIR/vm/.ssh $DEST_DIR
 
 cp $DIR/pack_vm_p_files.sh $DEST_DIR
