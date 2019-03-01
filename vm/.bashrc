@@ -122,6 +122,7 @@ export PATH=$PATH:$HOME/work/phtest/phtest
 export WORKSPACE=$HOME/work
 export SCM_BRANCH="purity"
 export PYTHONPATH=$WORKSPACE/$SCM_BRANCH/tools:$PYTHONPATH
+export PURE_TOOLS=$HOME/pure_tools
 
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
