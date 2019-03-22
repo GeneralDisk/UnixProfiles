@@ -37,6 +37,221 @@ gdiff()
         diff <(git log --oneline HEAD..@{u}| cut -d ' ' -f 2-) <(git log --oneline @{u}..HEAD | cut -d ' ' -f 2-)
 }
 
+update_libs()
+{
+        # Master list of all purity development libraries.  Update when necessary.
+        ALL_LIBS_ARRAY=( "admin" "bdev" "bmc" "boost" "bootcamp" "boot" "cdu" "cert" "chassis_mgr_gen" "cluster" "cpu"
+                         "crc32" "crypto" "curl" "defs" "ds" "fmm" "foe" "fpl" "ha" "hardware_config"
+                         "header" "homestake_hw" "hw" "i2c" "ipmioem" "jsoncpp" "killswitch-svc" "log"
+                         "lz4" "lzopro" "malloc2.13" "mgmt" "middleware" "middleware_platform" "network"
+                         "ntp" "offload" "osenv" "platinum_hw" "portinfo_common" "port_migration" "pureapp"
+                         "random" "replication" "reset" "s3" "san2" "san" "secret" "segmap" "sha" "smis"
+                         "snmp" "sql" "storage" "svc" "tbl" "tc" "vol" "xmlrpc" "z" "zstd" )
+
+        if [ -z "$1" ]
+        then
+                #PB_TEST=''
+                echo "ERROR: Please supply an argument flag.  Type 'run -h' for usage."
+                return 1
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** update_libs command: helper function for compiling and sending libs to a target array ***"
+                                echo " "
+                                echo "update_libs [option] [arg(s)]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --testbed             set the target testbed array"
+                                echo "-a, --all                 update all purity libraries.  This option takes a while."
+                                echo "-s, --specific-lib        update specific libraries. (for ex: 'hw ha')"
+                                echo " ******* "
+                                return 0
+                                ;;
+                        -t|--testbed)
+                                # TODO Implement this yo
+                                if [ -z "$2" ]
+                                then
+                                        echo "Please provide an array to update."
+                                        return 1
+                                fi
+                                TARGET_ARRAY="$2"
+                                TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+                                echo "Setting target testbed array to $TARGET_ARRAY"
+                                return 0
+                                ;;
+                        -a|--all)
+                                LIBS_ARRAY=("${ALL_LIBS_ARRAY[@]}")
+                                ;;
+                        -s|--specific-lib)
+                                if [ -z "$2" ]
+                                then
+                                        echo "Please provide a specific library to update."
+                                        return 1
+                                else
+                                        LIBS_ARRAY=()
+                                        # iterate through all arguments after the first
+                                        for lib in "${@:2}"
+                                        do
+                                                # Verify lib is a valid choice
+                                                if [[ " ${ALL_LIBS_ARRAY[@]} " =~ " ${lib} " ]]
+                                                then
+                                                        echo "updating $lib"
+                                                        LIBS_ARRAY+=("$lib")
+                                                else
+                                                        echo "NOTE: $lib is not a valid library name"
+                                                fi
+                                        done
+                                        lib=''
+                                fi
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Pass -h for options."
+                                return 1
+                                ;;
+                esac
+        fi
+
+        make_libs
+        send_libs
+        LIBS_ARRAY=''
+        ALL_LIBS_ARRAY=''
+        #TARGET_ARRAY=''
+}
+
+make_libs()
+{
+        if [ -z "$LIBS_ARRAY" ]
+        then
+                echo "No libs array provided, compiling the default list"
+                LIBS_ARRAY=( "ha" "hw" "bdev" "storage" "reset" "header" )
+                CLEAN="true"
+        fi
+
+
+        LIB_OUTPUT_DIR="/home/mkali/work/bld_linux/purity/"
+
+        for CUR_LIB in "${LIBS_ARRAY[@]}"
+        do
+                TARGET_LIB="$CUR_LIB-Release"
+                echo "Compiling: $TARGET_LIB"
+                CMD="ninja -j 10 -C $LIB_OUTPUT_DIR $TARGET_LIB"
+
+                # echo " - $CMD"
+                $CMD
+        done
+
+        echo "Done compiling all libraries"
+
+        if [[ $CLEAN == "true" ]]
+        then
+                LIBS_ARRAY=''
+        fi
+        CUR_LIB=''
+        TARGET_LIB=''
+        CMD=''
+        CLEAN=''
+}
+
+send_libs()
+{
+
+        #if [ -z "$1" ]
+        #then
+                #PB_TEST=''
+        #        echo "ERROR: Please supply a target array"
+        #        return 1
+        #fi
+        if [ -z "$TARGET_ARRAY" ]
+        then
+                echo "ERROR: TARGET_ARRAY variable must be set"
+                return 1
+        fi
+
+        if [ -z "$LIBS_ARRAY" ]
+        then
+                echo "No libs array provided, sending default list"
+                CLEAN="true"
+                LIBS_ARRAY=( "ha" "hw" "bdev" "storage" "reset" "header" )
+        fi
+        #TARGET_ARRAY="jm69-24"
+
+        TARGET_LIB_DIR="/opt/Purity/lib"
+        SOURCE_LIB_DIR="/home/mkali/work/bld_linux/purity/lib"
+
+        # Remove lp- if it was input
+        TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+        CONTROLLER_0="$TARGET_ARRAY-ct0"
+        CONTROLLER_1="$TARGET_ARRAY-ct1"
+
+        for CUR_LIB in "${LIBS_ARRAY[@]}"
+        do
+                TARGET_FILE="lib$CUR_LIB.so"
+                echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
+                CMD_1="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_0:$TARGET_LIB_DIR"
+                CMD_2="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_1:$TARGET_LIB_DIR"
+
+                #echo "Calling: $CMD_1"
+                #echo "Calling: $CMD_2"
+                $CMD_1
+                $CMD_2
+        done
+
+        echo "Done."
+
+        if [[ "$CLEAN" == "true" ]]
+        then
+                LIBS_ARRAY=''
+        fi
+        CLEAN=''
+        CUR_LIB=''
+        TARGET_FILE=''
+        #TARGET_ARRAY=''
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+}
+
+send_vimrc()
+{
+        if [ -z "$1" ]
+        then
+                #PB_TEST=''
+                echo "ERROR: Please supply a target array"
+                return 1
+        fi
+
+        TARGET_FILE=".array_vimrc"
+        TARGET_ARRAY="$1"
+
+        # Remove lp- if it was input
+        TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+        CONTROLLER_0="$TARGET_ARRAY-ct0"
+        CONTROLLER_1="$TARGET_ARRAY-ct1"
+
+
+        echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
+
+        CMD_1="scp /home/mkali/$TARGET_FILE root@$CONTROLLER_0:/root/.vimrc"
+        CMD_2="scp /home/mkali/$TARGET_FILE root@$CONTROLLER_1:/root/.vimrc"
+
+        # echo "Calling: $CMD_1"
+        $CMD_1
+
+        # echo "Calling: $CMD_2"
+        $CMD_2
+
+
+        echo "Done."
+
+        TARGET_FILE=''
+        TARGET_ARRAY=''
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+}
+
 # Function that runs pb and will automatically open the log output if a test fails
 run()
 {
@@ -341,11 +556,18 @@ pfind()
                         else
                                 echo "${#FILES[@]} files found with name $2:"
                                 counter=1
+                                COLOR_CODE=31
                                 for fl in "${FILES[@]}"; do
-                                        echo "[$counter] $fl"
+                                        echo -e "\e[${COLOR_CODE}m[$counter] $fl"
                                         (( counter++ ))
+                                        (( COLOR_CODE++ ))
+                                        if [[ $COLOR_CODE -gt 36 ]]
+                                        then
+                                                COLOR_CODE=31
+                                        fi
                                 done
-                                echo -n "Type the index of the one you want to open and press [ENTER]: "
+                                COLOR_CODE=''
+                                echo -en "\e[0mType the index of the one you want to open and press [ENTER]: "
                                 read choice
 
                                 # Check to see if input is valid.  First check that it's a number

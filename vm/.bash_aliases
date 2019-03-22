@@ -11,6 +11,8 @@ alias pureb='cd ~/work/bld_linux/purity'
 alias boot='cd ~/work/purity/kernel/bootcamp'
 alias log='cd /mnt/cluster_nfs/'
 
+alias blib='cd ~/work/bld_linux/purity/lib'
+
 #alias run='pb run runtests $CURPROJ'
 #alias runc='pb run --clean runtests $CURPROJ'
 
