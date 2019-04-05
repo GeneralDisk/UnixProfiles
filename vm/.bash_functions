@@ -37,6 +37,32 @@ gdiff()
         diff <(git log --oneline HEAD..@{u}| cut -d ' ' -f 2-) <(git log --oneline @{u}..HEAD | cut -d ' ' -f 2-)
 }
 
+# do_debug.py helper function.  Uses separate git repo for do_debug and routes to correct python script
+do_debug()
+{
+
+        # USAGE:
+        # usually use with a -u flag with a jenkins link to examine core files
+        # Ex: do_debug -u http://mp2jenkins.dev.purestorage.com:8080/job/mergepool_trunk_network_vlan_functional_test/1767/
+
+        PURE_TOOLS_REPO="/home/mkali/work/purity/tools/pure_tools/"
+        GIT_REPO="/home/mkali/work/purity_debug/purity"
+        WORKDIR="/home/mkali/work/do_debug"
+
+        case $PWD in $WORKDIR/*)
+                echo "Using working directory $PWD";;
+                *)
+                cd $WORKDIR;;
+        esac
+        exec "$PURE_TOOLS_REPO/debug/do_debug.py" -g "$GIT_REPO" "$@"
+
+        PURE_TOOLS_REPO=''
+        GIT_REPO=''
+        WORKDIR=''
+
+}
+
+# Utility for compiling and sending purity libraries to a target array
 update_libs()
 {
         # Master list of all purity development libraries.  Update when necessary.
@@ -45,13 +71,13 @@ update_libs()
                          "header" "homestake_hw" "hw" "i2c" "ipmioem" "jsoncpp" "killswitch-svc" "log"
                          "lz4" "lzopro" "malloc2.13" "mgmt" "middleware" "middleware_platform" "network"
                          "ntp" "offload" "osenv" "platinum_hw" "portinfo_common" "port_migration" "pureapp"
-                         "random" "replication" "reset" "s3" "san2" "san" "secret" "segmap" "sha" "smis"
-                         "snmp" "sql" "storage" "svc" "tbl" "tc" "vol" "xmlrpc" "z" "zstd" )
+                         "pyplatform" "random" "replication" "reset" "s3" "san2" "san" "secret" "segmap"
+                         "sha" "smis" "snmp" "sql" "storage" "svc" "tbl" "tc" "vol" "xmlrpc" "z" "zstd" )
 
         if [ -z "$1" ]
         then
                 #PB_TEST=''
-                echo "ERROR: Please supply an argument flag.  Type 'run -h' for usage."
+                echo "ERROR: Please supply an argument flag.  Type 'update_libs -h' for usage."
                 return 1
         else
                 case "$1" in
@@ -63,6 +89,7 @@ update_libs()
                                 echo "options:"
                                 echo "-h, --help                show brief help"
                                 echo "-t, --testbed             set the target testbed array"
+                                echo "-v, --vim                 send vimrc to target array"
                                 echo "-a, --all                 update all purity libraries.  This option takes a while."
                                 echo "-s, --specific-lib        update specific libraries. (for ex: 'hw ha')"
                                 echo " ******* "
@@ -72,13 +99,22 @@ update_libs()
                                 # TODO Implement this yo
                                 if [ -z "$2" ]
                                 then
-                                        echo "Please provide an array to update."
-                                        return 1
+                                        if [ -z "$TARGET_ARRAY" ]
+                                        then
+                                                echo "Please provide an array to update."
+                                                return 1
+                                        fi
+                                        echo "Current target array is [$TARGET_ARRAY]"
+                                        return 0
                                 fi
                                 TARGET_ARRAY="$2"
                                 TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
 
                                 echo "Setting target testbed array to $TARGET_ARRAY"
+                                return 0
+                                ;;
+                        -v|--vim)
+                                send_vimrc "$TARGET_ARRAY"
                                 return 0
                                 ;;
                         -a|--all)
@@ -122,6 +158,10 @@ update_libs()
 
 make_libs()
 {
+        # To change make optimization flags goto purity base directory and run
+        # ppremake.sh with the desired flags.
+        # Ex: ./ppremake.sh --cc=gcc --optimize=3
+        # TODO: make this into it's own separate cmd option?
         if [ -z "$LIBS_ARRAY" ]
         then
                 echo "No libs array provided, compiling the default list"
@@ -193,8 +233,8 @@ send_libs()
                 CMD_1="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_0:$TARGET_LIB_DIR"
                 CMD_2="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_1:$TARGET_LIB_DIR"
 
-                #echo "Calling: $CMD_1"
-                #echo "Calling: $CMD_2"
+                echo "Calling: $CMD_1"
+                echo "Calling: $CMD_2"
                 $CMD_1
                 $CMD_2
         done
@@ -223,13 +263,13 @@ send_vimrc()
         fi
 
         TARGET_FILE=".array_vimrc"
-        TARGET_ARRAY="$1"
+        DEST_ARRAY="$1"
 
         # Remove lp- if it was input
-        TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+        DEST_ARRAY=${DEST_ARRAY#"lp-"}
 
-        CONTROLLER_0="$TARGET_ARRAY-ct0"
-        CONTROLLER_1="$TARGET_ARRAY-ct1"
+        CONTROLLER_0="$DEST_ARRAY-ct0"
+        CONTROLLER_1="$DEST_ARRAY-ct1"
 
 
         echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
@@ -247,7 +287,7 @@ send_vimrc()
         echo "Done."
 
         TARGET_FILE=''
-        TARGET_ARRAY=''
+        DEST_ARRAY=''
         CONTROLLER_0=''
         CONTROLLER_1=''
 }

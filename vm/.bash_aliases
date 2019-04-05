@@ -10,6 +10,7 @@ alias plib='cd ~/work/purity/tools/pure/lib'
 alias pureb='cd ~/work/bld_linux/purity'
 alias boot='cd ~/work/purity/kernel/bootcamp'
 alias log='cd /mnt/cluster_nfs/'
+alias tri='cd ~/work/triage/'
 
 alias blib='cd ~/work/bld_linux/purity/lib'
 
