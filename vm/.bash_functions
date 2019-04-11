@@ -1,5 +1,7 @@
 # Bash functions file
+#
 # Author: Maris Kali
+# Copyright: You steal my shit without asking and I will fuck you up.  All rights reserved.
 
 TESTBED=''
 PYTEST_SOURCE=":/home/mkali/fixtestenv/bin:"
@@ -294,14 +296,12 @@ send_vimrc()
         CONTROLLER_1=''
 }
 
-# Function that runs pb and will automatically open the log output if a test fails
+# Function that runs pb and will automatically open the log output if a test fails. If more than one
+# test fails, you will be asked which you want to open until you give a quit command.
 run()
 {
-        # TODO: make options for opening error file & using non-interactive mode.
         # TODO: write checks for compiler errors, only execute opening step if a valid file is pulled
-        # TODO: add option to specify PB_TESTvariable, either as env var or as option
         lines=()
-        # PB_TEST='ha.multipath'
         CUR_TIME=$(date +'%Y-%m-%d %T')
 
         if [ -z "$1" ]
@@ -312,7 +312,7 @@ run()
         else
                 case "$1" in
                         -h|--help)
-                                echo "*** run command: helper function for running pb run ***"
+                                echo "*** run command: helper wrapper for running pb run ***"
                                 echo " "
                                 echo "run [option]"
                                 echo " "
@@ -337,7 +337,6 @@ run()
                                         echo "Setting PB_TEST to '$2'"
                                         PB_TEST="$2"
                                 fi
-
                                 return 0
                                 ;;
                         *)
@@ -349,8 +348,6 @@ run()
 
         if [ -z "$PB_TEST" ]
         then
-                #echo "ERROR: You must set PB_TEST to use this function";
-                #return 1
                 PB_TEST=""
         fi
 
@@ -379,14 +376,14 @@ run()
 
         echo "Running command '$COMMAND'"
 
-        #ALL_OUTPUT=$(eval $COMMAND 2>&1)
         OPEN_LOG_FILE="false"
+        TEST_CASES=()
         TEST_CASE=""
         # 2>&1 grabs all stdout and stderr output
         $COMMAND 2>&1 | {
                 while IFS= read -r line
                 do
-                        printf "%s\n" "$line"
+                        IS_FAIL_LINE="false"
                         for word in $line
                         do
                                 if [[ "$word" =~ "plan" ]]
@@ -399,29 +396,107 @@ run()
                                 fi
                                 if [[ "$word" =~ "FAILED" ]]
                                 then
+                                        IS_FAIL_LINE="true"
+                                        TEST_CASE=''
                                         OPEN_LOG_FILE="true"
                                         TEST_CASE="${line##* }"
                                         TEST_CASE=${TEST_CASE%^*}
+                                        TEST_CASES+=("$TEST_CASE")
                                 fi
                         done
+
+                        # I can't figure out how to print the numbers as they change... th bash
+                        # scanner can't do it :(
+                        if [ "$IS_FAIL_LINE" == "true" ]
+                        then
+                                # Make the fail testcase lines pretty and red like pb normally makes
+                                # them!
+                                printf "\e[31m%s\n\e[0m" "$line"
+                        else
+                                printf "%s\n" "$line"
+                        fi
 
                 done
         }
         echo "Finished"
-        #echo $ALL_OUTPUT
-        #echo "Pulled plan: $PLAN"
-        #echo "Pulled task: $TASK"
-        #echo "Pulled failed testcase: $TEST_CASE"
 
-        LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
         if [[ "$OPEN_LOG_FILE" = true ]]
         then
-                echo "Opening log file: $LOG_FILE"
-                vi $LOG_FILE
+                # If only one result, open that file, otherwise present the user with an option
+                if [ ${#TEST_CASES[@]} == "1" ]
+                then
+                        #LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
+                        TEST_CASE="${TEST_CASES[0]}"
+                        FIND_FILE_CMD="find $PLAN -name *.stdout | grep --color=never -e $TEST_CASE"
+                        LOG_FILE="$(eval $FIND_FILE_CMD)"
+                        echo "Opening log file: $LOG_FILE"
+                        vi $LOG_FILE
+                else
+                        # Allow the user to open log files until inputing 'quit' command
+                        while true
+                        do
+                                echo "${#TEST_CASES[@]} test cases failed:"
+                                counter=1
+                                COLOR_CODE=31
+                                # Print failed test cases list, color code them for ease of eyes
+                                for fl in "${TEST_CASES[@]}"; do
+                                        echo -e "\e[${COLOR_CODE}m[$counter] $fl"
+                                        (( counter++ ))
+                                        (( COLOR_CODE++ ))
+                                        if [[ $COLOR_CODE -gt 36 ]]
+                                        then
+                                                COLOR_CODE=31
+                                        fi
+                                done
+                                COLOR_CODE=''
+                                echo -en "\e[0mType the index of the testcase you want to open the stdout file for (or 'q' to exit) and press [ENTER]: "
+                                read choice
+
+                                if [ "$choice" == "q" ]
+                                then
+                                        echo "Quit command recieved, quitting."
+                                        return 0
+                                fi
+
+                                # Check to see if input is valid.  First check that it's a number
+                                if [[ -n ${choice//[0-9]/} ]]
+                                then
+                                        echo "Invalid input, try again using only numbers or 'q' to quit"
+                                        continue
+                                else
+                                        # Now check that the input is in the valid range of choices
+                                        if [ $choice -lt 1 ] || [ $choice -gt ${#TEST_CASES[@]} ]
+                                        then
+                                                echo "Invalid input, input out of range"
+                                                continue
+                                        fi
+                                fi
+                                # Convert to array index and assign
+                                (( choice-- ))
+
+                                TEST_CASE="${TEST_CASES[choice]}"
+                                FIND_FILE_CMD="find $PLAN -name *.stdout | grep --color=never -e $TEST_CASE"
+                                LOG_FILE="$(eval $FIND_FILE_CMD)"
+
+                                # Rather than opening a new vi file, throw error message if file couldn't be found
+                                if [ -z LOG_FILE ]
+                                then
+                                        echo "ERROR: Could not find log file for $TEST_CASE, plan directory may be incorrect"
+                                        continue
+                                fi
+                                #LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
+                                echo "Opening log file: $LOG_FILE"
+                                vi $LOG_FILE
+                        done
+                fi
         fi
-        #ALL_OUTPUT=()
+
+        TEST_CASE=''
+        LOG_FILE=''
+        FIND_FILE_CMD=''
 }
 
+# NOTE: Somewhat depreciated, no longer upkept
 # Function that allows us to copy and paste jenkins log lines and automatically find the correct
 # artifact logging directory.  TODO: write in PLAN and TASK dir verification (make sure they are
 # real dirs).
