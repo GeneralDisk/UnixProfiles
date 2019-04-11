@@ -65,6 +65,7 @@ do_debug()
 # Utility for compiling and sending purity libraries to a target array
 update_libs()
 {
+        CUR_TIME=$(date +'%Y-%m-%d %T')
         # Master list of all purity development libraries.  Update when necessary.
         ALL_LIBS_ARRAY=( "admin" "bdev" "bmc" "boost" "bootcamp" "boot" "cdu" "cert" "chassis_mgr_gen" "cluster" "cpu"
                          "crc32" "crypto" "curl" "defs" "ds" "fmm" "foe" "fpl" "ha" "hardware_config"
@@ -104,7 +105,7 @@ update_libs()
                                                 echo "Please provide an array to update."
                                                 return 1
                                         fi
-                                        echo "Current target array is [$TARGET_ARRAY]"
+                                        echo "Current target array is $TARGET_ARRAY"
                                         return 0
                                 fi
                                 TARGET_ARRAY="$2"
@@ -149,6 +150,7 @@ update_libs()
                 esac
         fi
 
+        echo "Starting at $CUR_TIME"
         make_libs
         send_libs
         LIBS_ARRAY=''
@@ -300,6 +302,7 @@ run()
         # TODO: add option to specify PB_TESTvariable, either as env var or as option
         lines=()
         # PB_TEST='ha.multipath'
+        CUR_TIME=$(date +'%Y-%m-%d %T')
 
         if [ -z "$1" ]
         then
@@ -352,6 +355,8 @@ run()
         fi
 
         # set_pb_vars  Not sure why this isn't working... fucking aliases
+
+        echo "Running at $CUR_TIME"
 
         if [[ "$RUN_PB_NORMALLY" == "true" ]]
         then
@@ -408,7 +413,7 @@ run()
         #echo "Pulled task: $TASK"
         #echo "Pulled failed testcase: $TEST_CASE"
 
-        LOG_FILE="/mnt/cluster_nfs/$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
+        LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
         if [[ "$OPEN_LOG_FILE" = true ]]
         then
                 echo "Opening log file: $LOG_FILE"
@@ -471,6 +476,124 @@ plog()
         ART_DEST_DIR="$ART_DIR/$PLAN/$ERROR_FILE"
         echo "Opening stdout file for failed test: $ART_DEST_DIR"
         vi $ART_DEST_DIR
+}
+
+# Function to open remote logs from specified ssh target
+rlog()
+{
+        REMOTE_LOG_DIR='/var/log/purity'
+        REMOTE_CONTROLLER=''
+        REMOTE_TARGET_FILE=''
+
+        if [ -z "$1" ]
+        then
+                echo "ERROR: Please supply an argument flag.  Type 'rlog -h' for usage."
+                return 1
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** rlog command: helper for opening remote logs from a specified ssh target ***"
+                                echo " "
+                                echo "rlog [option(s)] [args]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --target              show current remote target or [arg] set one"
+                                echo "-o, --open                open [arg] logfile from [arg] specified controller"
+                                echo "-p, --platform            open platform.log from [arg] specified controller"
+                                echo "-s, --syslog              open syslog from [arg] specified controller"
+                                return 0
+                                ;;
+                        -t|--target)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$REMOTE_TARGET" ]
+                                        then
+                                                echo "Please provide a valid target array."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $REMOTE_TARGET"
+                                        return 0
+                                fi
+                                REMOTE_TARGET="$2"
+                                REMOTE_TARGET=${REMOTE_TARGET#"lp-"}
+
+                                echo "Setting target testbed array to $REMOTE_TARGET"
+                                return 0
+                                ;;
+                        -o|--open)
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target file"
+                                else
+                                        REMOTE_TARGET_FILE="$2"
+                                fi
+
+                                if [ -z "$3" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$3"
+                                fi
+                                ;;
+                        -p|--platform)
+                                REMOTE_TARGET_FILE="platform.log.gz"
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$2"
+                                fi
+                                ;;
+                        -s|--syslog)
+                                REMOTE_TARGET_FILE="../syslog"
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$2"
+                                fi
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Pass -h for options."
+                                return 1
+                                ;;
+                esac
+        fi
+
+        # Allow for two options to assign ct0
+        if [ \( "$REMOTE_CONTROLLER" == "0" \) -o \( "$REMOTE_CONTROLLER" == "ct0" \) ]
+        then
+                REMOTE_CONTROLLER="-ct0"
+        fi
+
+        # Allow for two options to assign ct1
+        if [ \( "$REMOTE_CONTROLLER" == "1" \) -o \( "$REMOTE_CONTROLLER" == "ct1" \) ]
+        then
+                REMOTE_CONTROLLER="-ct1"
+        fi
+
+        # Bark about bad input
+        if [ \( "$REMOTE_CONTROLLER" != "-ct0" \) -a \( "$REMOTE_CONTROLLER" != "-ct1" \) ]
+        then
+                echo "ERROR: [ $REMOTE_CONTROLLER ] is a bad input for controller target.  Specify '0, ct0' or '1, ct1' for controls 0 and 1 respectively"
+                return 1
+        fi
+
+        #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
+        COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi -"
+
+        echo "Calling: $COMMAND"
+
+        eval $COMMAND
+
+        COMMAND=''
+        REMOTE_CONTROLLER=''
+        REMOTE_LOG_DIR=''
+        REMOTE_TARGET_FILE=''
 }
 
 pfind()
@@ -557,9 +680,10 @@ pfind()
                 # For grepping multiple patterns recursively, remove the eval and quotes
                 # Format command string to quote the user input
                 COMMAND_STR="$COMMAND_STR \"$2\""
-                echo "Calling: $COMMAND_STR"
+
                 if [ "$OPEN_FILE" = true ]
                 then
+                        echo "Calling: $COMMAND_STR"
                         CMD_RES="$(eval $COMMAND_STR)"
 
                         if [ -z "$CMD_RES" ]
@@ -639,7 +763,9 @@ pfind()
                                 vi "$OPEN_FILE"
                         fi
                 else
-                        eval $COMMAND_STR
+                        # Grepping patterns, support extra args
+                        echo "Calling: $COMMAND_STR ${@:3}"
+                        eval $COMMAND_STR ${@:3}
                 fi
         fi
 

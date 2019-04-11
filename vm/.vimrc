@@ -21,7 +21,7 @@ Plugin 'Valloric/YouCompleteMe'
 " The following are examples of different formats supported.
 " Keep Plugin commands between vundle#begin/end.
 " plugin on GitHub repo
-"Plugin 'tpope/vim-fugitive'
+Plugin 'tpope/vim-fugitive'
 
 " plugin from http://vim-scripts.org/vim/scripts.html
 " Plugin 'L9'
@@ -62,7 +62,23 @@ set tabstop=8
 set expandtab
 set hlsearch
 set laststatus=2
-set statusline+=%F
+set statusline+=%2*%F%*
+" note: using '^' symbol for linespaces cuz i can
+set statusline+=%1*^^^^%*
+set statusline+=%3*%{fugitive#statusline()}%2*
+
+" Default color group
+hi User2 ctermfg=black
+hi User2 ctermbg=white
+
+" Color group for git bar
+hi User3 ctermfg=010
+hi User3 ctermbg=black
+
+" Define a group for line spaces
+hi User1 ctermfg=white
+hi User1 ctermbg=white
+" set user using '%#*' then define user color with 'hi User# ctermbg=xxx'
 
 "Highlighting
 highlight ExtraWhitespace ctermbg=red guibg=red
