@@ -17,6 +17,50 @@ testDUMB()
 #useful for debugging and testing
 testF()
 {
+        echo "test parse 'http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/'"
+        STR='http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/'
+
+        IFS='/' read -ra SLASHES <<< "$STR"
+
+        # Scan the url and grab the information we want
+        found_job="false"
+        for sub in "${SLASHES[@]}"; do
+                if [[ $sub == *"jenkins"* ]]
+                then
+                        T_JENKINS="$sub"
+                fi
+                if [[ -n $T_JOB ]]
+                then
+                        T_RUN="$sub"
+                fi
+
+                if [[ $found_job == "true" ]]
+                then
+                        T_JOB="$sub"
+                fi
+
+                if [[ $sub == "job" ]]
+                then
+                        found_job="true"
+                else
+                        found_job="false"
+                fi
+
+                echo "$sub"
+        done
+        # fix the jenkins line
+        IFS="." read -ra JEN <<< "$T_JENKINS"
+        T_JENKINS="${JEN[0]}"
+
+        echo "T_JENKINS = $T_JENKINS"
+        echo "T_JOB = $T_JOB"
+        echo "T_RUN = $T_RUN"
+        T_JENKINS=''
+        T_JOB=''
+        T_RUN=''
+        JEN=''
+        SLASHES=''
+        found_job=''
         #if [[ ! ":$PATH:" == *":/home/mkali/fixtestenv/bin:"* ]]
         #then
         #        echo "RUN VITRUTAL INSTALL YOU PLEB"
@@ -25,10 +69,6 @@ testF()
         #fi
         #
         #
-        line="==  FAILED  ==     4996 ms --  task-a72b4953  -- worker-9f91cdd9 -- ha.multipath.change_drive_active_path"
-        file="${line##* }^[[om"
-        file=${file%^*}
-        echo $file
 }
 
 gdiff()
@@ -91,11 +131,23 @@ update_libs()
                                 echo " "
                                 echo "options:"
                                 echo "-h, --help                show brief help"
+                                echo "-l, --list                list available libraries"
                                 echo "-t, --testbed             set the target testbed array"
                                 echo "-v, --vim                 send vimrc to target array"
                                 echo "-a, --all                 update all purity libraries.  This option takes a while."
                                 echo "-s, --specific-lib        update specific libraries. (for ex: 'hw ha')"
                                 echo " ******* "
+                                return 0
+                                ;;
+                        -l|--list)
+                                echo "Libraries available to compile:"
+                                # Print all available libraries in ALL_LIBS_ARRAY
+                                for lib in "${ALL_LIBS_ARRAY[@]}"
+                                do
+                                        echo "  -- $lib"
+                                done
+                                lib=''
+
                                 return 0
                                 ;;
                         -t|--testbed)
@@ -379,6 +431,7 @@ run()
         OPEN_LOG_FILE="false"
         TEST_CASES=()
         TEST_CASE=""
+        BUILD_FAILED="false"
         # 2>&1 grabs all stdout and stderr output
         $COMMAND 2>&1 | {
                 while IFS= read -r line
@@ -402,7 +455,13 @@ run()
                                         TEST_CASE="${line##* }"
                                         TEST_CASE=${TEST_CASE%^*}
                                         TEST_CASES+=("$TEST_CASE")
+
                                 fi
+                                if [[ "$word" =~ "ERROR" ]]
+                                then
+                                        BUILD_FAILED="true"
+                                fi
+
                         done
 
                         # I can't figure out how to print the numbers as they change... th bash
@@ -419,6 +478,13 @@ run()
                 done
         }
         echo "Finished"
+
+        if [[ "$BUILD_FAILED" = true ]]
+        then
+                BUILD_FAILED=''
+                return 0
+        fi
+        BUILD_FAILED=''
 
         if [[ "$OPEN_LOG_FILE" = true ]]
         then
@@ -494,6 +560,91 @@ run()
         TEST_CASE=''
         LOG_FILE=''
         FIND_FILE_CMD=''
+}
+
+# Asuuming you've mounted a tlog directory in your VM, this function allows you to auto-navigate to
+# that folder, or the proper jenkins/job/run sub dir if you provide the job URL.
+# Ex: tlog http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/
+#
+# tlog mounting documentation https://wiki.purestorage.com/display/psw/Mounting+tlogs
+tlog()
+{
+        TLOG_DIR="/home/mkali/work/logs/tlogs"
+        DEST_DIR=''
+        T_JENKINS=''
+        T_JOB=''
+        T_RUN=''
+        JEN=''
+        SLASHES=''
+        found_job=''
+
+        if [ -z "$1" ]
+        then
+                DEST_DIR="$TLOG_DIR"
+        else
+
+                IFS='/' read -ra SLASHES <<< "$1"
+
+                # Scan the url and grab the information we want
+                found_job="false"
+                for sub in "${SLASHES[@]}"; do
+                        if [[ $sub == *"jenkins"* ]]
+                        then
+                                T_JENKINS="$sub"
+                        fi
+                        if [[ -n $T_JOB ]]
+                        then
+                                T_RUN="$sub"
+                        fi
+
+                        if [[ $found_job == "true" ]]
+                        then
+                                T_JOB="$sub"
+                        fi
+
+                        if [[ $sub == "job" ]]
+                        then
+                                found_job="true"
+                        else
+                                found_job="false"
+                        fi
+
+                        #echo "$sub"
+                done
+                sub=''
+                # fix the jenkins line
+                IFS="." read -ra JEN <<< "$T_JENKINS"
+                T_JENKINS="${JEN[0]}"
+
+                if [ -z $T_JENKINS ] || [ -z $T_JOB ] || [ -z $T_RUN ]
+                then
+                        echo "ERROR: input URL is invalid"
+                        return 1
+                fi
+
+                echo "T_JENKINS = $T_JENKINS"
+                echo "T_JOB = $T_JOB"
+                echo "T_RUN = $T_RUN"
+                #T_JENKINS="$1"
+                #T_TEST="$2"
+                #T_RUN="$4"
+
+                DEST_DIR="$TLOG_DIR/$T_JENKINS/jobs/$T_JOB/$T_RUN"
+        fi
+        echo "cd $DEST_DIR"
+
+        cd $DEST_DIR
+
+
+        TLOG_DIR=''
+        DEST_DIR=''
+        T_JENKINS=''
+        T_JOB=''
+        T_RUN=''
+        JEN=''
+        SLASHES=''
+        found_job=''
+
 }
 
 # NOTE: Somewhat depreciated, no longer upkept
@@ -659,7 +810,7 @@ rlog()
         fi
 
         #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
-        COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi -"
+        COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
 
         echo "Calling: $COMMAND"
 

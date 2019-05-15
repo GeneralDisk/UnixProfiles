@@ -114,3 +114,6 @@ nnoremap <f5> :%s/\s\+$//e<return>
 "      The following command will set vim to paste mode (no auto-indent)
 set pastetoggle=<f6>
 
+nnoremap <C-h> :set colorcolumn=<return>
+
+
