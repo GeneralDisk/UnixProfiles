@@ -6,6 +6,29 @@
 TESTBED=''
 PYTEST_SOURCE=":/home/mkali/fixtestenv/bin:"
 
+list_global_vars()
+{
+        echo "Global terminal variables used to persist information over multiple command"
+
+        GLOBAL_ARR=()
+        GLOBAL_ARR+=("TARGET_ARRAY: [$TARGET_ARRAY] used for update_libs")
+        GLOBAL_ARR+=("REMOTE_TARGET: [$REMOTE_TARGET] used for rlog")
+        GLOBAL_ARR+=("PB_TEST: [$PB_TEST] used for run")
+        GLOBAL_ARR+=("TESTBED: [$TESTBED] used for ptest")
+
+        # TARGET_ARRAY # for update_libs
+        # REMOTE_TARGET # for rlog
+        # PB_TEST # for run
+        # TESTBED # For ptest
+
+        for var in "${GLOBAL_ARR[@]}"; do
+                echo "- $var"
+        done
+
+        var=''
+        GLOBAL_ARR=''
+}
+
 testDUMB()
 {
         echo "This"
@@ -242,6 +265,7 @@ make_libs()
 
         if [[ $CLEAN == "true" ]]
         then
+                echo "Cleaning LIBS_ARRAY"
                 LIBS_ARRAY=''
         fi
         CUR_LIB=''
@@ -564,7 +588,9 @@ run()
 
 # Asuuming you've mounted a tlog directory in your VM, this function allows you to auto-navigate to
 # that folder, or the proper jenkins/job/run sub dir if you provide the job URL.
-# Ex: tlog http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/
+# Usage:
+# - tlog http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/
+# - tlog
 #
 # tlog mounting documentation https://wiki.purestorage.com/display/psw/Mounting+tlogs
 tlog()
@@ -609,11 +635,12 @@ tlog()
                                 found_job="false"
                         fi
 
-                        #echo "$sub"
                 done
                 sub=''
                 # fix the jenkins line
                 IFS="." read -ra JEN <<< "$T_JENKINS"
+                T_JENKINS="${JEN[0]}"
+                IFS=":" read -ra JEN <<< "$T_JENKINS"
                 T_JENKINS="${JEN[0]}"
 
                 if [ -z $T_JENKINS ] || [ -z $T_JOB ] || [ -z $T_RUN ]
@@ -622,19 +649,15 @@ tlog()
                         return 1
                 fi
 
-                echo "T_JENKINS = $T_JENKINS"
-                echo "T_JOB = $T_JOB"
-                echo "T_RUN = $T_RUN"
-                #T_JENKINS="$1"
-                #T_TEST="$2"
-                #T_RUN="$4"
+                #echo "T_JENKINS = $T_JENKINS"
+                #echo "T_JOB = $T_JOB"
+                #echo "T_RUN = $T_RUN"
 
                 DEST_DIR="$TLOG_DIR/$T_JENKINS/jobs/$T_JOB/$T_RUN"
         fi
         echo "cd $DEST_DIR"
 
         cd $DEST_DIR
-
 
         TLOG_DIR=''
         DEST_DIR=''
@@ -644,7 +667,6 @@ tlog()
         JEN=''
         SLASHES=''
         found_job=''
-
 }
 
 # NOTE: Somewhat depreciated, no longer upkept
@@ -1027,17 +1049,37 @@ ptest ()
                                 echo " "
                                 echo "ptest [option] [test file]"
                                 echo " "
-                                echo "NOTE: You must set the TESTBED variable to use this function."
-                                echo " "
                                 echo "options:"
                                 echo "-h, --help                show brief help"
+                                echo "-t, --testbed             set the target testbed array"
                                 echo "-s, --setup               setup/update the testbed on target array"
                                 echo "-r, --run                 run regularly without setup"
                                 echo "-rf, --refresh            run ssd reset on the testbed"
+                                echo "-hmo, --health            run hmo healthchecks on the testbed"
                                 echo "--no-io                   run regularly without IO"
                                 echo "-db, --debug              run in debug mode w/ pdb"
                                 return 0
                                 ;;
+                        -t|--testbed)
+                                # TODO Implement this yo
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$TESTBED" ]
+                                        then
+                                                echo "Please provide an array to test on."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $TESTBED"
+                                        return 0
+                                fi
+                                TESTBED="$2"
+                                TESTBED=${TESTBED#"lp-"}
+                                TESTBED="lp-$TESTBED"
+
+                                echo "Setting target testbed array to $TESTBED"
+                                return 0
+                                ;;
+
                         -s|--setup)
                                 COMMAND_STR="--testbed $TESTBED"
                                 ;;
@@ -1048,7 +1090,11 @@ ptest ()
                                 COMMAND_STR="$SETUP_TB_FILE_LOC --testbed $TESTBED --reset --skip-update"
                                 requires_file=false
                                 ;;
-                        --no-io)
+                        -hmo|--health)
+                                COMMAND_STR="$SETUP_TB_FILE_LOC --testbed $TESTBED --skip-update"
+                                requires_file=false
+                                ;;
+                        --no-io)i
                                 COMMAND_STR="--testbed $TESTBED --test-only --no-io"
                                 ;;
                         -db|--debug)
@@ -1063,7 +1109,7 @@ ptest ()
 
         if [ -z "$TESTBED" ]
         then
-                echo "ERROR: You must set TESTBED to use this function";
+                echo "ERROR: Please set the target testbed using 'ptest -t [testbed]'";
                 return 1
         fi
 
