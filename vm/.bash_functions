@@ -732,6 +732,7 @@ rlog()
         REMOTE_LOG_DIR='/var/log/purity'
         REMOTE_CONTROLLER=''
         REMOTE_TARGET_FILE=''
+        REMOTE_FILE_IS_GZ='false'
 
         if [ -z "$1" ]
         then
@@ -793,6 +794,7 @@ rlog()
                                         return 1
                                 else
                                         REMOTE_CONTROLLER="$2"
+                                        REMOTE_FILE_IS_GZ='true'
                                 fi
                                 ;;
                         -s|--syslog)
@@ -831,8 +833,23 @@ rlog()
                 return 1
         fi
 
+        if [[ $REMOTE_TARGET_FILE == *"gz" ]];
+        then
+                #echo "It's a gunzip file"
+                REMOTE_FILE_IS_GZ='true'
+        else
+                #echo "it's a regular file"
+                REMOTE_FILE_IS_GZ='false'
+        fi
+
+
+        if [ "$REMOTE_FILE_IS_GZ" = true ]
+        then
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+        else
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+        fi
         #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
-        COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
 
         echo "Calling: $COMMAND"
 
@@ -842,6 +859,7 @@ rlog()
         REMOTE_CONTROLLER=''
         REMOTE_LOG_DIR=''
         REMOTE_TARGET_FILE=''
+        REMOTE_FILE_IS_GZ=''
 }
 
 pfind()
