@@ -127,6 +127,89 @@ do_debug()
 
 }
 
+# Prototype utility for compiling and sending middleware.java updates to a target array
+update_middleware()
+{
+
+        COMPILE_LIB=''
+        SCP_LIB=''
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+        #./middleware/sbin/build_middleware.sh
+        #scp middleware/target/*.jar root@<testbed>-<controller>:/opt/Purity/middleware/
+        if [ -z "$1" ]
+        then
+                echo "Error: Please supply an argument flag with function call. (update_middleware -h for help)"
+                return 0
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** update_middleware command: helper for compiling changes to middleware and sending them to a target array ***"
+                                echo " "
+                                echo "update_middleware [option] [args]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --testbed             set the target testbed array"
+                                echo "-u, --update              compile and send middleware binaries to the target"
+                                echo " ******* "
+                                echo " "
+                                return 0
+                                ;;
+                        -t|--testbed)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$TARGET_ARRAY" ]
+                                        then
+                                                echo "Please provide an array to update."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $TARGET_ARRAY"
+                                        return 0
+                                fi
+                                TARGET_ARRAY="$2"
+                                TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+                                echo "Setting target testbed array to $TARGET_ARRAY"
+                                return 0
+                                ;;
+                        -u|--update)
+                                COMPILE_LIB="/home/mkali/work/purity/middleware/sbin/build_middleware.sh"
+                                CONTROLLER_0="$TARGET_ARRAY-ct0"
+                                CONTROLLER_1="$TARGET_ARRAY-ct1"
+                                SCP_LIB_0="scp /home/mkali/work/purity/middleware/target/*.jar root@$CONTROLLER_0:/opt/Purity/middleware/"
+                                SCP_LIB_1="scp /home/mkali/work/purity/middleware/target/*.jar root@$CONTROLLER_1:/opt/Purity/middleware/"
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Use -h for options"
+                                return 1
+                                ;;
+                esac
+        fi
+
+        if [ -z "$COMPILE_LIB" ]
+        then
+                return 0
+        fi
+
+        if [ -z "TARGET_ARRAY" ]
+        then
+                echo "Error: Target array must be set.  Run update_middleware -t [array]."
+                return 1
+        fi
+
+        CUR_TIME=$(date +'%Y-%m-%d %T')
+        echo "Beginning middleware library update at $CUR_TIME"
+        echo "Running: $COMPILE_LIB"
+        $COMPILE_LIB
+        echo "Running: $SCP_LIB_0"
+        $SCP_LIB_0
+        echo "Running: $SCP_LIB_1"
+        $SCP_LIB_1
+        echo "Done."
+        return 0
+}
+
 # Utility for compiling and sending purity libraries to a target array
 update_libs()
 {
@@ -394,10 +477,17 @@ run()
                                 echo " "
                                 echo "options:"
                                 echo "-h, --help                show brief help"
+                                echo "-a, --all                 run all runtests normally"
                                 echo "-r, --run                 run pb build command normally"
                                 echo "-o, --open                open failed test stdout files if any"
                                 echo "-t, --test [arg]          display current PB_TEST value or set if arg input"
                                 echo " ******* "
+                                return 0
+                                ;;
+                        -a|--all)
+                                COMMAND="pb run runtests"
+                                echo "Running all unit tests normally"
+                                $COMMAND
                                 return 0
                                 ;;
                         -r|--run)
@@ -725,6 +815,130 @@ plog()
         echo "Opening stdout file for failed test: $ART_DEST_DIR"
         vi $ART_DEST_DIR
 }
+
+update_alert()
+{
+
+
+        if [ -z "$1" ]
+        then
+                echo "ERROR: Please supply an argument flag.  Type 'update_alert -h' for usage."
+                return 1
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** update_alert command: helper for updating an alert probe on a specified ssh target ***"
+                                echo " "
+                                echo "update_alert [option(s)] [args]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --target              show current remote target or [arg] set one"
+                                echo "-u, --update              updates the target array with the supplied [arg] alert probe"
+                                return 0
+                                ;;
+                        -t|--target)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$REMOTE_TARGET" ]
+                                        then
+                                                echo "Please provide a valid target array."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $REMOTE_TARGET"
+                                        return 0
+                                fi
+                                REMOTE_TARGET="$2"
+                                REMOTE_TARGET=${REMOTE_TARGET#"lp-"}
+
+                                echo "Setting target testbed array to $REMOTE_TARGET"
+                                return 0
+                                ;;
+                        -u|--update)
+                                if [ -z "$REMOTE_TARGET" ]
+                                then
+                                        echo "Please set a target array first. Use 'update_alert -t [array]'"
+                                        return 1
+                                fi
+
+                                if [ -z "$2" ]
+                                then
+                                        echo "Please provide a target alert. EX: cache_location"
+                                        return 1
+                                fi
+                                PROBE="$2"
+                                echo "Updating $PROBE"
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Pass -h for options."
+                                return 1
+                                ;;
+                esac
+        fi
+         
+        FILE_1="${PROBE}_probe.py"
+        FILE_2="${PROBE}_probe_data.py"
+        FILE_3="monitor_test.py"
+        FILE_4="alert.py"
+
+        PURITY_DIR="/home/mkali/work/purity"
+        PATH_1="$(eval 'find $PURITY_DIR -name $FILE_1')"
+        PATH_2="$(eval 'find $PURITY_DIR -name $FILE_2')"
+        PATH_3="$(eval 'find $PURITY_DIR -name $FILE_3')"
+        PATH_4="$PURITY_DIR/tools/pure/alert/alert.py"
+
+        CONTROLLER_0="$REMOTE_TARGET-ct0"
+        CONTROLLER_1="$REMOTE_TARGET-ct1"
+
+        CUR_CONTROLLER="$CONTROLLER_0"
+        CMD_1="scp $PATH_1 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/monitor/$FILE_1"
+        CMD_2="scp $PATH_2 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/monitor/test/data/$FILE_2"
+        CMD_3="scp $PATH_3 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/test/$FILE_3"
+        CMD_4="scp $PATH_4 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/$FILE_4"
+
+        echo "Sending files to $CUR_CONTROLLER..."
+        echo "Calling: $CMD_1"
+        $CMD_1
+        echo "Calling: $CMD_2"
+        $CMD_2
+        echo "Calling: $CMD_3"
+        $CMD_3
+        echo "Calling: $CMD_4"
+        $CMD_4
+
+        CUR_CONTROLLER="$CONTROLLER_1"
+        CMD_1="scp $PATH_1 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/monitor/$FILE_1"
+        CMD_2="scp $PATH_2 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/monitor/test/data/$FILE_2"
+        CMD_3="scp $PATH_3 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/test/$FILE_3"
+        CMD_4="scp $PATH_4 root@$CUR_CONTROLLER:/usr/lib/python2.7/dist-packages/pure/alert/$FILE_4"
+
+        echo "Sending files to $CUR_CONTROLLER..."
+        echo "Calling: $CMD_1"
+        $CMD_1
+        echo "Calling: $CMD_2"
+        $CMD_2
+        echo "Calling: $CMD_3"
+        $CMD_3
+        echo "Calling: $CMD_4"
+        $CMD_4
+
+        FILE_1=''
+        FILE_2=''
+        FILE_3=''
+        PATH_1=''
+        PATH_2=''
+        PATH_3=''
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+        CUR_CONTROLLER=''
+        CMD_1=''
+        CMD_2=''
+        CMD_3=''
+        CMD_4=''
+
+        return 0
+}
+
 
 # Function to open remote logs from specified ssh target
 rlog()

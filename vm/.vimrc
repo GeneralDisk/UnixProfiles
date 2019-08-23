@@ -67,6 +67,9 @@ set statusline+=%2*%F%*
 set statusline+=%1*^^^^%*
 set statusline+=%3*%{fugitive#statusline()}%2*
 
+" hlsearch colors (white on blue)
+hi Search cterm=NONE ctermfg=white ctermbg=blue
+
 " Default color group
 hi User2 ctermfg=black
 hi User2 ctermbg=white
@@ -80,7 +83,7 @@ hi User1 ctermfg=white
 hi User1 ctermbg=white
 " set user using '%#*' then define user color with 'hi User# ctermbg=xxx'
 
-"Highlighting
+"Highlighting extra whitespace
 highlight ExtraWhitespace ctermbg=red guibg=red
 match ExtraWhitespace /\s\+$/
 

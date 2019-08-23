@@ -12,6 +12,9 @@ alias boot='cd ~/work/purity/kernel/bootcamp'
 alias log='cd /mnt/cluster_nfs/'
 alias tri='cd ~/work/triage/'
 
+# git aliases
+alias gfiles='git diff-tree --no-commit-id --name-only -r'
+
 # to rebuild kernal repro, nav to purity/linux-kernel/ and type 'make release-tree'
 alias kern='cd ~/work/bld_linux/linux-2.6.git'
 
