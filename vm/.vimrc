@@ -100,6 +100,13 @@ let g:ycm_confirm_extra_conf = 0
  highlight YcmErrorSection ctermbg=160
  let g:ycm_allow_changing_updatetime = 0
  let g:ycm_error_symbol = '>>'
+
+"Function decls
+func! CmdCallback(cmd, timer)
+        execute a:cmd
+endfunc
+
+
 " Code navigation with Ctrl-] , use Ctrl-O to get back to previous location
  nnoremap <silent> <C-]> :YcmCompleter GoTo<CR>
 " nnoremap <silent> <C-[> :YcmCompleter GoToInclude<CR>

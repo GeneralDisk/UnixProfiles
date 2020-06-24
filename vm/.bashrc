@@ -118,7 +118,12 @@ set_pb_vars() {
     export PATH=$PURITY_SRC/pb/bin:$PATH
 }
 
+# Java stuff
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre/
+export PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/:$PATH
+
 export PATH=$PATH:$HOME/work/phtest/phtest
+export PATH=$PURITY_SRC/paws/scripts:$PATH
 export WORKSPACE=$HOME/work
 export SCM_BRANCH="purity"
 export PYTHONPATH=$WORKSPACE/$SCM_BRANCH/tools:$PYTHONPATH

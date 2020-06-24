@@ -21,7 +21,8 @@ list_global_vars()
         # PB_TEST # for run
         # TESTBED # For ptest
 
-        for var in "${GLOBAL_ARR[@]}"; do
+        for var in "${GLOBAL_ARR[@]}"
+        do
                 echo "- $var"
         done
 
@@ -29,12 +30,43 @@ list_global_vars()
         GLOBAL_ARR=''
 }
 
-testDUMB()
+tester()
 {
-        echo "This"
-        echo "is"
-        echo "a bunch"
-        echo "of crap heyyyyyy"
+        echo "Tester function: start"
+
+        user_input_args=false
+        ARG_COUNTER=0
+        ARGS=''
+        for arg in "$@"
+        do
+                ((ARG_COUNTER++))
+                user_input_args=true
+                ARGS+="$arg "
+                echo "User argument $arg"
+        done
+        echo "$ARG_COUNTER args input!"
+        if [[ $ARG_COUNTER == 0 ]]
+        then
+                echo "NO ARGS"
+        elif [[ $ARG_COUNTER > 1 ]]
+        then
+                echo "More than one arg selected"
+                echo "ARGS = $ARGS"
+                last="$(echo "$ARGS" | awk '{print $NF}')"
+                echo "Last arg = $last"
+                last=''
+        else
+                echo "one argument selected"
+        fi
+
+        remove_first_arg="${ARGS#* }"
+        echo $remove_first_arg
+
+        if [ "$user_input_args" == false ]
+        then
+                echo "Warning: no arguments input"
+        fi
+        echo "Tester function: end"
 }
 
 #useful for debugging and testing
@@ -96,10 +128,23 @@ testF()
 
 gdiff()
 {
-        echo "Comparing local branch to upstream.\nIf you are rebasing, there should be no lines <\n"
+        TARGET_BRANCH=''
+        if [ -z "$1" ]
+        then
+                TARGET_BRANCH=@{u}
+        else
+                TARGET_BRANCH="$1"
+        fi
+
+
+
+        echo "Comparing local branch to $TARGET_BRANCH.\nIf you are rebasing, there should be no lines <\n"
+        echo "Important: < are commits in $TARGET_BRANCH that aren't in HEAD, > are the opposite."
         echo "Calling: diff <(git log --oneline HEAD..@{u}| cut -d ' ' -f 2-) <(git log --oneline @{u}..HEAD | cut -d ' ' -f 2-)"
 
-        diff <(git log --oneline HEAD..@{u}| cut -d ' ' -f 2-) <(git log --oneline @{u}..HEAD | cut -d ' ' -f 2-)
+        diff <(git log --oneline HEAD..$TARGET_BRANCH | cut -d ' ' -f 2-) <(git log --oneline $TARGET_BRANCH..HEAD | cut -d ' ' -f 2-)
+
+        TARGET_BRANCH=''
 }
 
 # do_debug.py helper function.  Uses separate git repo for do_debug and routes to correct python script
@@ -222,6 +267,7 @@ update_libs()
                          "ntp" "offload" "osenv" "platinum_hw" "portinfo_common" "port_migration" "pureapp"
                          "pyplatform" "random" "replication" "reset" "s3" "san2" "san" "secret" "segmap"
                          "sha" "smis" "snmp" "sql" "storage" "svc" "tbl" "tc" "vol" "xmlrpc" "z" "zstd" )
+        ALL_BIN_ARRAY=( "foed" "platform_framework" )
 
         if [ -z "$1" ]
         then
@@ -242,6 +288,7 @@ update_libs()
                                 echo "-v, --vim                 send vimrc to target array"
                                 echo "-a, --all                 update all purity libraries.  This option takes a while."
                                 echo "-s, --specific-lib        update specific libraries. (for ex: 'hw ha')"
+                                echo "-b, --specific-binary     update specific binaries.  (ex: 'foed platform_framework')"
                                 echo " ******* "
                                 return 0
                                 ;;
@@ -253,6 +300,12 @@ update_libs()
                                         echo "  -- $lib"
                                 done
                                 lib=''
+                                echo "Binaries available to compile:"
+                                for binary in "${ALL_BIN_ARRAY[@]}"
+                                do
+                                        echo "  -- $binary"
+                                done
+                                binary=''
 
                                 return 0
                                 ;;
@@ -280,6 +333,8 @@ update_libs()
                                 ;;
                         -a|--all)
                                 LIBS_ARRAY=("${ALL_LIBS_ARRAY[@]}")
+                                LIB_CMD='true'
+                                BIN_CMD='false'
                                 ;;
                         -s|--specific-lib)
                                 if [ -z "$2" ]
@@ -301,6 +356,33 @@ update_libs()
                                                 fi
                                         done
                                         lib=''
+                                        LIB_CMD='true'
+                                        BIN_CMD='false'
+                                fi
+                                ;;
+                        -b|--specific-binary)
+
+                                if [ -z "$2" ]
+                                then
+                                        echo "Please provide a specific binary to update."
+                                        return 1
+                                else
+                                        BIN_ARRAY=()
+                                        # iterate through all arguments after the first
+                                        for binary in "${@:2}"
+                                        do
+                                                # Verify binary is a valid choice
+                                                if [[ " ${ALL_BIN_ARRAY[@]} " =~ " ${binary} " ]]
+                                                then
+                                                        echo "updating $binary"
+                                                        BIN_ARRAY+=("$binary")
+                                                else
+                                                        echo "NOTE: $binary is not a valid library name"
+                                                fi
+                                        done
+                                        binary=''
+                                        LIB_CMD='false'
+                                        BIN_CMD='true'
                                 fi
                                 ;;
                         *)
@@ -311,10 +393,25 @@ update_libs()
         fi
 
         echo "Starting at $CUR_TIME"
-        make_libs
-        send_libs
+
+        if [[ $LIB_CMD == "true" ]]
+        then
+                make_libs
+                send_libs
+        fi
+        if [[ $BIN_CMD == "true" ]]
+        then
+                make_bins
+                send_bins
+        fi
+
+        # Clean all variables
         LIBS_ARRAY=''
         ALL_LIBS_ARRAY=''
+        BIN_ARRAY=''
+        ALL_BIN_ARRAY=''
+        BIN_CMD=''
+        LIB_CMD=''
         #TARGET_ARRAY=''
 }
 
@@ -353,6 +450,44 @@ make_libs()
         fi
         CUR_LIB=''
         TARGET_LIB=''
+        CMD=''
+        CLEAN=''
+}
+
+make_bins()
+{
+        # To change make optimization flags goto purity base directory and run
+        # ppremake.sh with the desired flags.
+        # Ex: ./ppremake.sh --cc=gcc --optimize=3
+        # TODO: make this into it's own separate cmd option?
+        if [ -z "$BIN_ARRAY" ]
+        then
+                echo "No binary array provided, exiting"
+                return
+        fi
+
+
+        LIB_OUTPUT_DIR="/home/mkali/work/bld_linux/purity/"
+
+        for CUR_BIN in "${BIN_ARRAY[@]}"
+        do
+                TARGET_BIN="$CUR_BIN-Release"
+                echo "Compiling: $TARGET_BIN"
+                CMD="ninja -j 10 -C $LIB_OUTPUT_DIR $TARGET_BIN"
+
+                # echo " - $CMD"
+                $CMD
+        done
+
+        echo "Done compiling all libraries"
+
+        if [[ $CLEAN == "true" ]]
+        then
+                echo "Cleaning BIN_ARRAY"
+                BIN_ARRAY=''
+        fi
+        CUR_BIN=''
+        TARGET_BIN=''
         CMD=''
         CLEAN=''
 }
@@ -412,6 +547,57 @@ send_libs()
         CUR_LIB=''
         TARGET_FILE=''
         #TARGET_ARRAY=''
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+}
+
+send_bins()
+{
+        if [ -z "$TARGET_ARRAY" ]
+        then
+                echo "ERROR: TARGET_ARRAY variable must be set"
+                return 1
+        fi
+
+        if [ -z "$BIN_ARRAY" ]
+        then
+                echo "No binary array provided, exiting"
+                CLEAN="true"
+                return
+        fi
+        #TARGET_ARRAY="jm69-24"
+
+        TARGET_BIN_DIR="/opt/Purity/bin"
+        SOURCE_BIN_DIR="/home/mkali/work/bld_linux/purity/bin"
+
+        # Remove lp- if it was input
+        TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+        CONTROLLER_0="$TARGET_ARRAY-ct0"
+        CONTROLLER_1="$TARGET_ARRAY-ct1"
+
+        for CUR_BIN in "${BIN_ARRAY[@]}"
+        do
+                TARGET_FILE="$CUR_BIN"
+                echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
+                CMD_1="scp $SOURCE_BIN_DIR/$TARGET_FILE root@$CONTROLLER_0:$TARGET_BIN_DIR"
+                CMD_2="scp $SOURCE_BIN_DIR/$TARGET_FILE root@$CONTROLLER_1:$TARGET_BIN_DIR"
+
+                echo "Calling: $CMD_1"
+                echo "Calling: $CMD_2"
+                $CMD_1
+                $CMD_2
+        done
+
+        echo "Done."
+
+        if [[ "$CLEAN" == "true" ]]
+        then
+                BIN_ARRAY=''
+        fi
+        CLEAN=''
+        CUR_BIN=''
+        TARGET_FILE=''
         CONTROLLER_0=''
         CONTROLLER_1=''
 }
@@ -875,7 +1061,7 @@ update_alert()
                                 ;;
                 esac
         fi
-         
+
         FILE_1="${PROBE}_probe.py"
         FILE_2="${PROBE}_probe_data.py"
         FILE_3="monitor_test.py"
@@ -1078,16 +1264,27 @@ rlog()
 
 pfind()
 {
-        FILE_EXTENSIONS="h,cpp,py"
+        FILE_EXTENSIONS="h,cpp,py,java"
         CUR_DIR=$(pwd)
         OPEN_FILE=false
+        OPTION_COUNTER=0
+        MULTI_OPTION_SUPPORT=true
+        # Multiple options are enabled on a cmd basis.  This means, only a single command can exist
+        # per option set, but multiple options FOR that command can exist, and should be formatted
+        # with option flags.
+        COMMAND_OPTION=''
+        COMMAND_ARGS=''
+        COMMAND_ARG_COUNTER=0
 
-        if [ -z "$1" ]
-        then
-                echo "ERROR: Please supply an argument flag.  Type 'pfind -h' for usage."
-                return 1
-        else
-                case "$1" in
+        # *** Option flag booleans ***
+        OPTION_ARGS=''
+        REMOTE_BRANCH=false
+
+        GRAB_NEXT_OPTION_ARG=false
+        GRAB_NEXT_CMD_ARG=false
+        for arg in "$@"
+        do
+                case "$arg" in
                         -h|--help)
                                 echo "*** pfind command: helper for grepping and finding ***"
                                 echo " "
@@ -1097,7 +1294,9 @@ pfind()
                                 echo "-h, --help                show brief help"
                                 echo "-f, --find                find a file in sub dirs"
                                 echo "-o, --open                open a file if it exists in sub dirs"
+                                echo "-rb, --remote-branch      specify a remote branch to open a file for"
                                 echo "-g, --grep                grep for a pattern in sub dirs"
+                                echo "-ga, --grep-all           grep for a pattern in all file types"
                                 echo "-gl                       grep for a pattern in .log files"
                                 echo "-gc                       grep for a pattern in .config files"
                                 echo " ******* "
@@ -1105,10 +1304,21 @@ pfind()
                                 ;;
                         -f|--find)
                                 COMMAND_STR="find $CUR_DIR -name"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
                                 ;;
                         -o|--open)
                                 COMMAND_STR="find $CUR_DIR -name"
                                 OPEN_FILE=true
+                                ((OPTION_COUNTER++))
+                                GRAB_NEXT_CMD_ARG=true
+                                ;;
+                        -rb|--remote-branch)
+                                GRAB_NEXT_CMD_ARG=false
+                                GRAB_NEXT_OPTION_ARG=true
+                                ((OPTION_COUNTER++))
+                                REMOTE_BRANCH=true
                                 ;;
                         -g|--grep)
                                 # For bash literal expansions, we need to eval echo and store the
@@ -1116,10 +1326,19 @@ pfind()
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
                                 COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
 
                                 # Clean the variables
                                 GLOB=''
                                 GLOB_EXP=''
+                                ;;
+                        -ga|--grep-all)
+                                COMMAND_STR="grep --color -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
                                 ;;
                         -gl)
                                 # For bash literal expansions, we need to eval echo and store the
@@ -1128,6 +1347,9 @@ pfind()
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
                                 COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
 
                                 # Clean the variables
                                 GLOB=''
@@ -1140,122 +1362,196 @@ pfind()
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
                                 COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
 
                                 # Clean the variables
                                 GLOB=''
                                 GLOB_EXP=''
                                 ;;
                         *)
-                                echo "Invalid argument flag passed.  Pass -h for options."
-                                return 1
+                                # All other arguments will be user arguments
+                                #
+                                # Prioritize cmd arguments
+                                if [ "$GRAB_NEXT_CMD_ARG" == true ]
+                                then
+                                        ((COMMAND_ARG_COUNTER++))
+                                        if [ -z "$COMMAND_ARGS" ]
+                                        then
+                                                COMMAND_ARGS+="$arg"
+                                        else
+                                                COMMAND_ARGS+=" $arg"
+                                        fi
+                                elif [ "$GRAB_NEXT_OPTION_ARG" == true ]
+                                then
+                                        if [ -z "$OPTION_ARGS" ]
+                                        then
+                                                OPTION_ARGS+="$arg"
+                                        else
+                                                OPTION_ARGS+=" $arg"
+                                        fi
+                                fi
                                 ;;
                 esac
+        done
+        GRAB_NEXT_CMD_ARG=''
+        GRAB_NEXT_OPTION_ARG=''
+
+        if [[ $OPTION_COUNTER == 0 ]]
+        then
+                echo "ERROR: Please supply a valid option flag.  Type 'pfind -h' for usage."
+                return 1
+        elif [[ $OPTION_COUNTER > 1 ]]
+        then
+                #Check if multiple options are supported
+                if [ "$MULTI_OPTION_SUPPORT" == false ]
+                then
+                        echo "ERROR: One or more of the input options ($OPTION_COUNTER selected) are not supported in tandem. Type 'pfind -h' for usage"
+                        return 1
+                fi
         fi
 
-        if [ -z "$2" ]
+        if [ -z "$COMMAND_ARGS" ]
         then
-                echo "ERROR: You must supply a second argument to grep or find!"
+                echo "ERROR: You must supply arguments for the options requested"
                 return 1
+        fi
+
+        # For grepping multiple patterns recursively, remove the eval and quotes
+        # Format command string to quote the user input
+        #FIRST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $1}')"
+        #FIRST_C_ARG="$2"
+        LAST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $NF}')"
+        # Trailing arguments for multi-arg greps
+        if [[ $COMMAND_ARG_COUNTER > 1 ]]
+        then
+                FIRST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $1}')"
+                REMOVE_FIRST_ARG="${COMMAND_ARGS#* }"
         else
-                # For grepping multiple patterns recursively, remove the eval and quotes
-                # Format command string to quote the user input
-                COMMAND_STR="$COMMAND_STR \"$2\""
+                FIRST_C_ARG="$COMMAND_ARGS"
+                REMOVE_FIRST_ARG=''
+        fi
 
-                if [ "$OPEN_FILE" = true ]
+        COMMAND_STR="$COMMAND_STR \"$FIRST_C_ARG\""
+
+        if [ "$OPEN_FILE" = true ]
+        then
+                echo "Calling: $COMMAND_STR"
+                CMD_RES="$(eval $COMMAND_STR)"
+
+                if [ -z "$CMD_RES" ]
                 then
-                        echo "Calling: $COMMAND_STR"
-                        CMD_RES="$(eval $COMMAND_STR)"
-
-                        if [ -z "$CMD_RES" ]
-                        then
-                                echo "No results found for search pattern."
-                                return 0
-                        fi
-
-                        # scan to line impl
-                        # TODO: make this an option flag you pleb, 'ol' maybe
-                        if [ -z "$3" ]
-                        then
-                                OPEN_SPEC_LINE='false'
-                        else
-                                # Make sure input is valid
-                                SPEC_LINE="$3"
-                                if [[ -n ${SPEC_LINE//[0-9]/} ]]
-                                then
-                                        echo "Bad line number specified, opening file at ln: 1"
-                                        OPEN_SPEC_LINE='false'
-                                else
-                                        OPEN_SPEC_LINE='true'
-                                fi
-                        fi
-
-                        # TODO: implement version of this that opens line of grep readout! That would be baller as fuck.
-                        # Use input scanner to parse the grep result into an array
-                        IFS=$'\n'; FILES=($CMD_RES); unset IFS;
-
-                        # Open the file if only one result, ask the user which to open if more
-                        if [ ${#FILES[@]} == "1" ]
-                        then
-                                OPEN_FILE="$FILES"
-                        else
-                                echo "${#FILES[@]} files found with name $2:"
-                                counter=1
-                                COLOR_CODE=31
-                                for fl in "${FILES[@]}"; do
-                                        echo -e "\e[${COLOR_CODE}m[$counter] $fl"
-                                        (( counter++ ))
-                                        (( COLOR_CODE++ ))
-                                        if [[ $COLOR_CODE -gt 36 ]]
-                                        then
-                                                COLOR_CODE=31
-                                        fi
-                                done
-                                COLOR_CODE=''
-                                echo -en "\e[0mType the index of the one you want to open and press [ENTER]: "
-                                read choice
-
-                                # Check to see if input is valid.  First check that it's a number
-                                if [[ -n ${choice//[0-9]/} ]]
-                                then
-                                        echo "Invalid input, use only numbers."
-                                        return 1
-                                else
-                                        # Now check that the input is in the valid range of choices
-                                        if [ $choice -lt 1 ] || [ $choice -gt ${#FILES[@]} ]
-                                        then
-                                                echo "Invalid input, input out of range"
-                                                return 1
-                                        fi
-                                fi
-                                # Convert to array index and assign
-                                (( choice-- ))
-
-                                OPEN_FILE="${FILES[choice]}"
-                        fi
-
-                        if [ $OPEN_SPEC_LINE == 'true' ]
-                        then
-                                echo "Opening file: $OPEN_FILE at line $SPEC_LINE"
-                                COMMAND_STR='vi $OPEN_FILE +$SPEC_LINE'
-                                eval $COMMAND_STR
-                        else
-                                echo "Opening file: $OPEN_FILE"
-                                vi "$OPEN_FILE"
-                        fi
-                else
-                        # Grepping patterns, support extra args
-                        echo "Calling: $COMMAND_STR ${@:3}"
-                        eval $COMMAND_STR ${@:3}
+                        echo "No results found for search pattern."
+                        return 0
                 fi
+
+                # scan to line impl
+                # Make sure input is valid
+                # This will not always be a line input
+                SPEC_LINE="$LAST_C_ARG"
+                if [[ -n ${SPEC_LINE//[0-9]/} ]]
+                then
+                        #echo "Bad line number specified, opening file at ln: 1"
+                        # If no or a bad line is specified, ignore it
+                        OPEN_SPEC_LINE='false'
+                else
+                        OPEN_SPEC_LINE='true'
+                fi
+
+                # TODO: implement version of this that opens line of grep readout! That would be baller as fuck.
+                # Use input scanner to parse the grep result into an array
+                IFS=$'\n'; FILES=($CMD_RES); unset IFS;
+
+                # Open the file if only one result, ask the user which to open if more
+                if [ ${#FILES[@]} == "1" ]
+                then
+                        OPEN_FILE="$FILES"
+                else
+                        echo "${#FILES[@]} files found with name $FIRST_C_ARG:"
+                        counter=1
+                        COLOR_CODE=31
+                        for fl in "${FILES[@]}"; do
+                                echo -e "\e[${COLOR_CODE}m[$counter] $fl"
+                                (( counter++ ))
+                                (( COLOR_CODE++ ))
+                                if [[ $COLOR_CODE -gt 36 ]]
+                                then
+                                        COLOR_CODE=31
+                                fi
+                        done
+                        COLOR_CODE=''
+                        echo -en "\e[0mType the index of the one you want to open and press [ENTER]: "
+                        read choice
+
+                        # Check to see if input is valid.  First check that it's a number
+                        if [[ -n ${choice//[0-9]/} ]]
+                        then
+                                echo "Invalid input, use only numbers."
+                                return 1
+                        else
+                                # Now check that the input is in the valid range of choices
+                                if [ $choice -lt 1 ] || [ $choice -gt ${#FILES[@]} ]
+                                then
+                                        echo "Invalid input, input out of range"
+                                        return 1
+                                fi
+                        fi
+                        # Convert to array index and assign
+                        (( choice-- ))
+
+                        OPEN_FILE="${FILES[choice]}"
+                fi
+
+                if [ "$REMOTE_BRANCH" == true ]
+                then
+                        if [ -z OPTION_ARGS ]
+                        then
+                                echo "Warning: no option arguments passed for sub option, dropping."
+                        else
+                                echo "Opening $OPEN_FILE on remote ref branch $OPTION_ARGS"
+                                # Because vim doesn't like to load plugins before executing a -c call
+                                # we need to get clever.  Thus, we run an autocmd script on VimEmter
+                                # where we call a timer to wait 1 ms after startup before piping
+                                # a string to a vim command callback function (see .vimrc).  Thus,
+                                # we wait for the plugin to load.
+                                vi -c ":autocmd VimEnter * call timer_start(100, function('CmdCallback',['Gedit $OPTION_ARGS:$OPEN_FILE']))"
+                        fi
+                elif [ $OPEN_SPEC_LINE == 'true' ]
+                then
+                        echo "Opening file: $OPEN_FILE at line $SPEC_LINE"
+                        COMMAND_STR='vi $OPEN_FILE +$SPEC_LINE'
+                        eval $COMMAND_STR
+                else
+                        echo "Opening file: $OPEN_FILE"
+                        vi "$OPEN_FILE"
+                fi
+        else
+                # Grepping patterns, support extra args
+                #echo "Calling: $COMMAND_STR ${@:3}"
+                #eval $COMMAND_STR ${@:3}
+                #echo "cmd_str=$COMMAND_STR - remv_first_arg=$REMOVE_FIRST_ARG"
+                echo "Calling: $COMMAND_STR $REMOVE_FIRST_ARG"
+                eval $COMMAND_STR $REMOVE_FIRST_ARG
         fi
 
         FILE_EXTENSIONS=''
         COMMAND_STR=''
+        FIRST_C_ARG=''
+        LAST_C_ARG=''
+        REMOVE_FIRST_ARG=''
         CUR_DIR=''
         OPEN_FILE=''
         CMD_RES=''
         OPEN_SPEC_LINE=''
         SPEC_LINE=''
+        OPTION_COUNTER=''
+        MULTI_OPTION_SUPPORT=''
+        COMMAND_OPTION=''
+        COMMAND_ARGS=''
+        COMMAND_ARG_COUNTER=''
+        REMOTE_BRANCH=''
+        OPTION_ARGS=''
         return 0
 }
 
@@ -1265,7 +1561,12 @@ ptest ()
 {
 
         requires_file=true
+        requires_tb=true
         SETUP_TB_FILE_LOC="/home/mkali/work/purity/tools/tests/infra/ci/setup_testbed.py"
+        #pytest ~/work/purity/tools/tests/core/torture/ac_setup.py --testbed=vm-mkali --test-only --ac-config /home/mkali/work/purity/tools/tests/core/torture/altered_carbon_configs/wssd.cfg --reset
+        ALTERED_CARBON_FILE="~/work/purity/tools/tests/core/torture/ac_setup.py"
+        AC_TARGET_VM="vm-mkali"
+        AC_CONFIG="/home/mkali/work/purity/tools/tests/core/torture/altered_carbon_configs/wssd.cfg"
 
 
         if [ -z "$1" ]
@@ -1311,7 +1612,12 @@ ptest ()
                                 echo "Setting target testbed array to $TESTBED"
                                 return 0
                                 ;;
-
+                        -ac|--altered-carbon)
+                                # pytest ~/work/purity/tools/tests/core/torture/ac_setup.py --testbed=vm-mkali --test-only --ac-config /home/mkali/work/purity/tools/tests/core/torture/altered_carbon_configs/wssd.cfg --reset
+                                COMMAND_STR-"$ALTERED_CARBON_FILE --testbed $AC_TARGET_VM --test-only --ac-config $AC_CONFIG --reset"
+                                requires_file=false
+                                requires_tb=false
+                                ;;
                         -s|--setup)
                                 COMMAND_STR="--testbed $TESTBED"
                                 ;;
@@ -1339,7 +1645,7 @@ ptest ()
                 esac
         fi
 
-        if [ -z "$TESTBED" ]
+        if [ -z "$TESTBED" -a "$requires_tb" == true ]
         then
                 echo "ERROR: Please set the target testbed using 'ptest -t [testbed]'";
                 return 1
@@ -1378,5 +1684,10 @@ ptest ()
                 eval pytest "$2" $COMMAND_STR
         fi
 
+        requires_tb=""
+        requires_files=""
+        AC_CONFIG=""
+        ALTERED_CARBON_FILE=""
+        AC_TARGET_VM=""
         #virtual_uninstall; #activate this if you want to hide the sourcing agent
 }
