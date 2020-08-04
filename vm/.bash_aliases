@@ -32,7 +32,9 @@ alias virtual_uninstall='deactivate'
 # Depreciated legacy orchestrator diz
 # alias set_orch_virtural_source="source ~/venv/bin/activate"
 # alias orch='PYTHONPATH=${PURE_TOOLS}/.. ${PURE_TOOLS}/ci/mockingbird/webapps/orchestrator/cli/orchestrator.py'
-alias set_orch_virtural_source="source ~/work/orchestratorenv/bin/activate"
+#alias set_orch_virtural_source="source ~/work/orchestratorenv/bin/activate"
+alias set_orch_virtual_source="workon orchestrator"
+alias orch_update="pip install -U orchestrator-client"
 alias orch='orchestrator'
 
 # SSH alias for paws aws instances.  Use like ssh cmd

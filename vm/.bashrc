@@ -114,7 +114,7 @@ set_pb_vars() {
     PURITY_SRC=$(git rev-parse --show-toplevel 2>/dev/null);
     [[ -d $PURITY_SRC/pb/bin ]] || { echo "Please run from within your purity checkout."; return 1; }
     export PURITY_SRC
-    export PYTHONPATH=$PURITY_SRC/pb/pb-py:$PYTHONPATH
+    export PYTHONPATH=$PURITY_SRC/pb/pb-py${PYTHONPATH:+:}$PYTHONPATH
     export PATH=$PURITY_SRC/pb/bin:$PATH
 }
 
