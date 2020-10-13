@@ -92,15 +92,18 @@ let &colorcolumn="101,".join(range(151,999),",") "highlight column 100 and the r
 highlight ColorColumn ctermbg=235 guibg=#2c2d27
 
 "YCM config settings
-let g:ycm_global_ycm_extra_conf = '~/work/purity/.ycm_extra_conf.py'
-
+"let g:ycm_global_ycm_extra_conf = '~/work/purity/.ycm_extra_conf.py'
+" Blacklist everything but our ycm conf
+"let g:ycm_global_ycm_extra_conf = '~/.ycm_extra_conf.py'
+"let g:ycm_extra_conf_globlist = ['!~/*']
 let g:ycm_confirm_extra_conf = 0
- let g:ycm_always_populate_location_list = 1
+let g:ycm_always_populate_location_list = 1
  highlight YcmErrorSign ctermbg=160
  highlight YcmErrorSection ctermbg=160
  let g:ycm_allow_changing_updatetime = 0
  let g:ycm_error_symbol = '>>'
-
+ "let g:max_diagnostics_to_display = 0
+"let max_diagnostics_to_display = 0
 "Function decls
 func! CmdCallback(cmd, timer)
         execute a:cmd

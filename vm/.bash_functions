@@ -1245,9 +1245,9 @@ rlog()
 
         if [ "$REMOTE_FILE_IS_GZ" = true ]
         then
-                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
         else
-                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
         fi
         #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
 
@@ -1557,7 +1557,7 @@ pfind()
 
 
 #function for running pytest
-ptest ()
+ptest()
 {
 
         requires_file=true
@@ -1657,7 +1657,8 @@ ptest ()
                 # rather naivee check to see if the fixtestenv has been added to the path
                 if [[ ! ":$PATH:" == *"$PYTEST_SOURCE"* ]]
                 then
-                        virtual_install
+                        echo ""
+                        #virtual_install
                         #virtual_install_new
                 fi
 
@@ -1676,7 +1677,8 @@ ptest ()
                 # rather naivee check to see if the fixtestenv has been added to the path
                 if [[ ! ":$PATH:" == *"$PYTEST_SOURCE"* ]]
                 then
-                        virtual_install;
+                        echo ""
+                        #virtual_install;
                         #virtual_install_new
                 fi
 
