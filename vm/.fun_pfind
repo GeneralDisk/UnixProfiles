@@ -1,0 +1,297 @@
+# Smart search utility
+#
+# Author: Maris Kali
+# Copyright: You steal my shit without asking and I will fuck you up.  All rights reserved.
+
+pfind()
+{
+        FILE_EXTENSIONS="h,cpp,py,java"
+        CUR_DIR=$(pwd)
+        OPEN_FILE=false
+        OPTION_COUNTER=0
+        MULTI_OPTION_SUPPORT=true
+        # Multiple options are enabled on a cmd basis.  This means, only a single command can exist
+        # per option set, but multiple options FOR that command can exist, and should be formatted
+        # with option flags.
+        COMMAND_OPTION=''
+        COMMAND_ARGS=''
+        COMMAND_ARG_COUNTER=0
+
+        # *** Option flag booleans ***
+        OPTION_ARGS=''
+        REMOTE_BRANCH=false
+
+        GRAB_NEXT_OPTION_ARG=false
+        GRAB_NEXT_CMD_ARG=false
+        for arg in "$@"
+        do
+                case "$arg" in
+                        -h|--help)
+                                echo "*** pfind command: helper for grepping and finding ***"
+                                echo " "
+                                echo "pfind [option] [pattern/file]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-f, --find                find a file in sub dirs"
+                                echo "-o, --open                open a file if it exists in sub dirs"
+                                echo "-rb, --remote-branch      specify a remote branch to open a file for"
+                                echo "-g, --grep                grep for a pattern in sub dirs"
+                                echo "-ga, --grep-all           grep for a pattern in all file types"
+                                echo "-gl                       grep for a pattern in .log files"
+                                echo "-gc                       grep for a pattern in .config files"
+                                echo " ******* "
+                                return 0
+                                ;;
+                        -f|--find)
+                                COMMAND_STR="find $CUR_DIR -name"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
+                                ;;
+                        -o|--open)
+                                COMMAND_STR="find $CUR_DIR -name"
+                                OPEN_FILE=true
+                                ((OPTION_COUNTER++))
+                                GRAB_NEXT_CMD_ARG=true
+                                ;;
+                        -rb|--remote-branch)
+                                GRAB_NEXT_CMD_ARG=false
+                                GRAB_NEXT_OPTION_ARG=true
+                                ((OPTION_COUNTER++))
+                                REMOTE_BRANCH=true
+                                ;;
+                        -g|--grep)
+                                # For bash literal expansions, we need to eval echo and store the
+                                # result
+                                GLOB=--include=\*.{$FILE_EXTENSIONS}
+                                GLOB_EXP=$(eval echo $GLOB)
+                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
+
+                                # Clean the variables
+                                GLOB=''
+                                GLOB_EXP=''
+                                ;;
+                        -ga|--grep-all)
+                                COMMAND_STR="grep --color -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
+                                ;;
+                        -gl)
+                                # For bash literal expansions, we need to eval echo and store the
+                                # result
+                                FILE_EXTENSIONS+=",log"
+                                GLOB=--include=\*.{$FILE_EXTENSIONS}
+                                GLOB_EXP=$(eval echo $GLOB)
+                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
+
+                                # Clean the variables
+                                GLOB=''
+                                GLOB_EXP=''
+                                ;;
+                        -gc)
+                                # For bash literal expansions, we need to eval echo and store the
+                                # result
+                                FILE_EXTENSIONS+=",config"
+                                GLOB=--include=\*.{$FILE_EXTENSIONS}
+                                GLOB_EXP=$(eval echo $GLOB)
+                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                ((OPTION_COUNTER++))
+                                MULTI_OPTION_SUPPORT=false
+                                GRAB_NEXT_CMD_ARG=true
+
+                                # Clean the variables
+                                GLOB=''
+                                GLOB_EXP=''
+                                ;;
+                        *)
+                                # All other arguments will be user arguments
+                                #
+                                # Prioritize cmd arguments
+                                if [ "$GRAB_NEXT_CMD_ARG" == true ]
+                                then
+                                        ((COMMAND_ARG_COUNTER++))
+                                        if [ -z "$COMMAND_ARGS" ]
+                                        then
+                                                COMMAND_ARGS+="$arg"
+                                        else
+                                                COMMAND_ARGS+=" $arg"
+                                        fi
+                                elif [ "$GRAB_NEXT_OPTION_ARG" == true ]
+                                then
+                                        if [ -z "$OPTION_ARGS" ]
+                                        then
+                                                OPTION_ARGS+="$arg"
+                                        else
+                                                OPTION_ARGS+=" $arg"
+                                        fi
+                                fi
+                                ;;
+                esac
+        done
+        GRAB_NEXT_CMD_ARG=''
+        GRAB_NEXT_OPTION_ARG=''
+
+        if [[ $OPTION_COUNTER == 0 ]]
+        then
+                echo "ERROR: Please supply a valid option flag.  Type 'pfind -h' for usage."
+                return 1
+        elif [[ $OPTION_COUNTER > 1 ]]
+        then
+                #Check if multiple options are supported
+                if [ "$MULTI_OPTION_SUPPORT" == false ]
+                then
+                        echo "ERROR: One or more of the input options ($OPTION_COUNTER selected) are not supported in tandem. Type 'pfind -h' for usage"
+                        return 1
+                fi
+        fi
+
+        if [ -z "$COMMAND_ARGS" ]
+        then
+                echo "ERROR: You must supply arguments for the options requested"
+                return 1
+        fi
+
+        # For grepping multiple patterns recursively, remove the eval and quotes
+        # Format command string to quote the user input
+        #FIRST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $1}')"
+        #FIRST_C_ARG="$2"
+        LAST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $NF}')"
+        # Trailing arguments for multi-arg greps
+        if [[ $COMMAND_ARG_COUNTER > 1 ]]
+        then
+                FIRST_C_ARG="$(echo "$COMMAND_ARGS" | awk '{print $1}')"
+                REMOVE_FIRST_ARG="${COMMAND_ARGS#* }"
+        else
+                FIRST_C_ARG="$COMMAND_ARGS"
+                REMOVE_FIRST_ARG=''
+        fi
+
+        COMMAND_STR="$COMMAND_STR \"$FIRST_C_ARG\""
+
+        if [ "$OPEN_FILE" = true ]
+        then
+                echo "Calling: $COMMAND_STR"
+                CMD_RES="$(eval $COMMAND_STR)"
+
+                if [ -z "$CMD_RES" ]
+                then
+                        echo "No results found for search pattern."
+                        return 0
+                fi
+
+                # scan to line impl
+                # Make sure input is valid
+                # This will not always be a line input
+                SPEC_LINE="$LAST_C_ARG"
+                if [[ -n ${SPEC_LINE//[0-9]/} ]]
+                then
+                        #echo "Bad line number specified, opening file at ln: 1"
+                        # If no or a bad line is specified, ignore it
+                        OPEN_SPEC_LINE='false'
+                else
+                        OPEN_SPEC_LINE='true'
+                fi
+
+                # TODO: implement version of this that opens line of grep readout! That would be baller as fuck.
+                # Use input scanner to parse the grep result into an array
+                IFS=$'\n'; FILES=($CMD_RES); unset IFS;
+
+                # Open the file if only one result, ask the user which to open if more
+                if [ ${#FILES[@]} == "1" ]
+                then
+                        OPEN_FILE="$FILES"
+                else
+                        echo "${#FILES[@]} files found with name $FIRST_C_ARG:"
+                        counter=1
+                        COLOR_CODE=31
+                        for fl in "${FILES[@]}"; do
+                                echo -e "\e[${COLOR_CODE}m[$counter] $fl"
+                                (( counter++ ))
+                                (( COLOR_CODE++ ))
+                                if [[ $COLOR_CODE -gt 36 ]]
+                                then
+                                        COLOR_CODE=31
+                                fi
+                        done
+                        COLOR_CODE=''
+                        echo -en "\e[0mType the index of the one you want to open and press [ENTER]: "
+                        read choice
+
+                        # Check to see if input is valid.  First check that it's a number
+                        if [[ -n ${choice//[0-9]/} ]]
+                        then
+                                echo "Invalid input, use only numbers."
+                                return 1
+                        else
+                                # Now check that the input is in the valid range of choices
+                                if [ $choice -lt 1 ] || [ $choice -gt ${#FILES[@]} ]
+                                then
+                                        echo "Invalid input, input out of range"
+                                        return 1
+                                fi
+                        fi
+                        # Convert to array index and assign
+                        (( choice-- ))
+
+                        OPEN_FILE="${FILES[choice]}"
+                fi
+
+                if [ "$REMOTE_BRANCH" == true ]
+                then
+                        if [ -z OPTION_ARGS ]
+                        then
+                                echo "Warning: no option arguments passed for sub option, dropping."
+                        else
+                                echo "Opening $OPEN_FILE on remote ref branch $OPTION_ARGS"
+                                # Because vim doesn't like to load plugins before executing a -c call
+                                # we need to get clever.  Thus, we run an autocmd script on VimEmter
+                                # where we call a timer to wait 1 ms after startup before piping
+                                # a string to a vim command callback function (see .vimrc).  Thus,
+                                # we wait for the plugin to load.
+                                vi -c ":autocmd VimEnter * call timer_start(100, function('CmdCallback',['Gedit $OPTION_ARGS:$OPEN_FILE']))"
+                        fi
+                elif [ $OPEN_SPEC_LINE == 'true' ]
+                then
+                        echo "Opening file: $OPEN_FILE at line $SPEC_LINE"
+                        COMMAND_STR='vi $OPEN_FILE +$SPEC_LINE'
+                        eval $COMMAND_STR
+                else
+                        echo "Opening file: $OPEN_FILE"
+                        vi "$OPEN_FILE"
+                fi
+        else
+                # Grepping patterns, support extra args
+                #echo "Calling: $COMMAND_STR ${@:3}"
+                #eval $COMMAND_STR ${@:3}
+                #echo "cmd_str=$COMMAND_STR - remv_first_arg=$REMOVE_FIRST_ARG"
+                echo "Calling: $COMMAND_STR $REMOVE_FIRST_ARG"
+                eval $COMMAND_STR $REMOVE_FIRST_ARG
+        fi
+
+        FILE_EXTENSIONS=''
+        COMMAND_STR=''
+        FIRST_C_ARG=''
+        LAST_C_ARG=''
+        REMOVE_FIRST_ARG=''
+        CUR_DIR=''
+        OPEN_FILE=''
+        CMD_RES=''
+        OPEN_SPEC_LINE=''
+        SPEC_LINE=''
+        OPTION_COUNTER=''
+        MULTI_OPTION_SUPPORT=''
+        COMMAND_OPTION=''
+        COMMAND_ARGS=''
+        COMMAND_ARG_COUNTER=''
+        REMOTE_BRANCH=''
+        OPTION_ARGS=''
+        return 0
+}
