@@ -30,6 +30,6 @@ cp $DIR/vm/.vimrc $DEST_DIR
 #cp -R $DIR/vm/.vim $DEST_DIR
 #cp -R $DIR/vm/.ssh $DEST_DIR
 
-cp $DIR/pack_vm_p_files.sh $DEST_DIR
+cp $DIR/vm/pack_vm_p_files.sh $DEST_DIR
 
 echo "Done."
