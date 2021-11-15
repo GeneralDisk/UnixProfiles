@@ -1,0 +1,151 @@
+# rlog - Remote logging utility
+#
+# Author: Maris Kali
+# Copyright: You steal my shit without asking and I will fuck you up.  All rights reserved.
+
+# Function to open remote logs from specified ssh target
+rlog()
+{
+        REMOTE_LOG_DIR='/var/log/purity'
+        REMOTE_CONTROLLER=''
+        REMOTE_TARGET_FILE=''
+        REMOTE_FILE_IS_GZ='false'
+
+        if [ -z "$1" ]
+        then
+                echo "ERROR: Please supply an argument flag.  Type 'rlog -h' for usage."
+                return 1
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** rlog command: helper for opening remote logs from a specified ssh target ***"
+                                echo " "
+                                echo "rlog [option(s)] [args]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --target              show current remote target or [arg] set one"
+                                echo "-o, --open                open [arg] logfile from [arg] specified controller"
+                                echo "-p, --platform            open platform.log from [arg] specified controller"
+                                echo "-s, --syslog              open syslog from [arg] specified controller"
+                                return 0
+                                ;;
+                        -t|--target)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$REMOTE_TARGET" ]
+                                        then
+                                                echo "Please provide a valid target array."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $REMOTE_TARGET"
+                                        return 0
+                                fi
+                                REMOTE_TARGET="$2"
+                                REMOTE_TARGET=${REMOTE_TARGET#"lp-"}
+
+                                echo "Setting target testbed array to $REMOTE_TARGET"
+                                return 0
+                                ;;
+                        -o|--open)
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target file"
+                                else
+                                        REMOTE_TARGET_FILE="$2"
+                                fi
+
+                                if [ -z "$3" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$3"
+                                fi
+                                ;;
+                        -p|--platform)
+                                REMOTE_TARGET_FILE="platform.log.gz"
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$2"
+                                        REMOTE_FILE_IS_GZ='true'
+                                fi
+                                ;;
+                        -s|--syslog)
+                                REMOTE_TARGET_FILE="../syslog"
+                                if [ -z "$2" ]
+                                then
+                                        echo "ERROR: Please provide a target controller"
+                                        return 1
+                                else
+                                        REMOTE_CONTROLLER="$2"
+                                fi
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Pass -h for options."
+                                return 1
+                                ;;
+                esac
+        fi
+
+        # Allow for two options to assign ct0
+        if [ \( "$REMOTE_CONTROLLER" == "0" \) -o \( "$REMOTE_CONTROLLER" == "ct0" \) ]
+        then
+                REMOTE_CONTROLLER="-ct0"
+        fi
+
+        # Allow for two options to assign ct1
+        if [ \( "$REMOTE_CONTROLLER" == "1" \) -o \( "$REMOTE_CONTROLLER" == "ct1" \) ]
+        then
+                REMOTE_CONTROLLER="-ct1"
+        fi
+
+        if [ \( "$REMOTE_CONTROLLER" == "v" \) -o \( "$REMOTE_CONTROLLER" == "vm" \) ]
+        then
+                REMOTE_CONTROLLER="virtual"
+        fi
+
+        # Bark about bad input
+        if [ \( "$REMOTE_CONTROLLER" != "-ct0" \) -a \( "$REMOTE_CONTROLLER" != "-ct1" \) -a \( "$REMOTE_CONTROLLER" != "virtual" \) ]
+        then
+                echo "ERROR: [ $REMOTE_CONTROLLER ] is a bad input for controller target.  Specify '0, ct0' or '1, ct1' for controls 0 and 1 respectively, or 'v' 'vm' for a virtual target"
+                return 1
+        fi
+
+        if [[ $REMOTE_TARGET_FILE == *"gz" ]];
+        then
+                #echo "It's a gunzip file"
+                REMOTE_FILE_IS_GZ='true'
+        else
+                #echo "it's a regular file"
+                REMOTE_FILE_IS_GZ='false'
+        fi
+
+        if [ "$REMOTE_CONTROLLER" == "virtual" ]
+        then
+                REMOTE_CONTROLLER=""
+        fi
+
+        if [ "$REMOTE_FILE_IS_GZ" = true ]
+        then
+                #COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+        else
+                #COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
+        fi
+        #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
+
+        echo "Calling: $COMMAND"
+
+        eval $COMMAND
+
+        COMMAND=''
+        REMOTE_CONTROLLER=''
+        REMOTE_LOG_DIR=''
+        REMOTE_TARGET_FILE=''
+        REMOTE_FILE_IS_GZ=''
+}
