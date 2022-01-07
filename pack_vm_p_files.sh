@@ -2,20 +2,23 @@
 
 # Packs all vm profile files back into the UnixProfiles repo
 
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
-        DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
-        SOURCE="$(readlink "$SOURCE")"
-        [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-        # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
-done
-DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
+#SOURCE="${BASH_SOURCE[0]}"
+#while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+#        DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
+#        SOURCE="$(readlink "$SOURCE")"
+#        [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+#        # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+#done
+#DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
+
+DIR="/home/mkali"
 
 # Find the UnixProfiles repo
 
 cd
 
-REPO_DIR="$(find . -name UnixProfiles)"
+#REPO_DIR="$(find . -name UnixProfiles)"
+REPO_DIR="$DIR/UnixProfiles"
 
 # Copy files into repo directory
 
