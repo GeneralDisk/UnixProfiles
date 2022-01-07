@@ -56,6 +56,7 @@ filetype plugin indent on    " required
 
 
 "default settings
+colo default " Default color scheme setting
 syntax on
 set number
 set tabstop=8

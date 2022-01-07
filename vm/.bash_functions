@@ -15,11 +15,13 @@ list_global_vars()
         GLOBAL_ARR+=("REMOTE_TARGET: [$REMOTE_TARGET] used for rlog")
         GLOBAL_ARR+=("PB_TEST: [$PB_TEST] used for run")
         GLOBAL_ARR+=("TESTBED: [$TESTBED] used for ptest")
+        GLOBAL_ARR+=("DEBUG_BUILD_FLAG: [$DEBUG_BUILD_FLAG] used for update_libs")
 
         # TARGET_ARRAY # for update_libs
         # REMOTE_TARGET # for rlog
         # PB_TEST # for run
         # TESTBED # For ptest
+        # DEBUG_BUILD_FLAG # for update_libs
 
         for var in "${GLOBAL_ARR[@]}"
         do
@@ -34,96 +36,65 @@ tester()
 {
         echo "Tester function: start"
 
-        user_input_args=false
-        ARG_COUNTER=0
-        ARGS=''
-        for arg in "$@"
-        do
-                ((ARG_COUNTER++))
-                user_input_args=true
-                ARGS+="$arg "
-                echo "User argument $arg"
-        done
-        echo "$ARG_COUNTER args input!"
-        if [[ $ARG_COUNTER == 0 ]]
-        then
-                echo "NO ARGS"
-        elif [[ $ARG_COUNTER > 1 ]]
-        then
-                echo "More than one arg selected"
-                echo "ARGS = $ARGS"
-                last="$(echo "$ARGS" | awk '{print $NF}')"
-                echo "Last arg = $last"
-                last=''
-        else
-                echo "one argument selected"
-        fi
-
-        remove_first_arg="${ARGS#* }"
-        echo $remove_first_arg
-
-        if [ "$user_input_args" == false ]
-        then
-                echo "Warning: no arguments input"
-        fi
+        test_line="2021-10-15 16:43:57,699 ==  FAILED  ==  ha.lawn_svc.stem_check_location_health.1                           ...    task-25d18788858e9d40 --    86856 ms"
+        test_line="2021-10-28 20:19:42,353 ==  FAILED  ==      6963 ms -- task-58d19a611f2bf556  -- worker-6056e4233103fcf3 -- ha.stem_check.hwman_check"
+        echo "$test_line"
+        test_ar=( $test_line )
+        echo ${test_ar[5]}
+        echo ${test_ar[-1]}
+        test_line=''
+        test_ar=''
         echo "Tester function: end"
 }
 
 #useful for debugging and testing
 testF()
 {
-        echo "test parse 'http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/'"
-        STR='http://repjenkins.dev.purestorage.com:8080/job/nearsync_cli-test3/77/'
+        if echo "vmmkali" | grep -q "vm"; then
+            echo "matched";
+        else
+            echo "no match";
+        fi
+}
 
-        IFS='/' read -ra SLASHES <<< "$STR"
+get_docker_devel_id()
+{
+        # DOCKER_DEVEL_ID will be set by this
+        # This function checks docker devel and will grab the id.
+        DOCKER_DEVEL_ID=''
+        COMMAND='docker ps'
+        # 1 is stdout, 2 is stderr.  $COMMAND 2>&1 means we run the cmd and redirect fp stderr to
+        # stdout.  THe | then redirects this output to a subshell defined by the {}.  Because we
+        # can't assign global variable upwards from subshell to this one, we have to capture the
+        # result via echo and by wrapping the whole thing in an eval $()
+        DOCKER_DEVEL_ID=$($COMMAND 2>&1 | {
+                while IFS= read -r line
+                do
+                        IS_FAIL_LINE="false"
+                        #echo "line - $line"
+                        FIRST=''
+                        for word in $line
+                        do
+                                #echo "Word $word"
+                                if [ -z "$FIRST" ]
+                                then
+                                        FIRST="$word"
+                                        #echo "Setting first to $FIRST"
+                                fi
+                                if [[ "$word" =~ "develop" ]]
+                                then
+                                        #echo "Found! first is $FIRST"
+                                        DOCKER_DEVEL_ID="$FIRST"
+                                        #echo "docker id = $DOCKER_DEVEL_ID"
+                                fi
+                        done
+                        #echo " --- "
+                        #nnecho "docker id = $DOCKER_DEVEL_ID"
+                done
+                echo "$DOCKER_DEVEL_ID"
+        })
 
-        # Scan the url and grab the information we want
-        found_job="false"
-        for sub in "${SLASHES[@]}"; do
-                if [[ $sub == *"jenkins"* ]]
-                then
-                        T_JENKINS="$sub"
-                fi
-                if [[ -n $T_JOB ]]
-                then
-                        T_RUN="$sub"
-                fi
-
-                if [[ $found_job == "true" ]]
-                then
-                        T_JOB="$sub"
-                fi
-
-                if [[ $sub == "job" ]]
-                then
-                        found_job="true"
-                else
-                        found_job="false"
-                fi
-
-                echo "$sub"
-        done
-        # fix the jenkins line
-        IFS="." read -ra JEN <<< "$T_JENKINS"
-        T_JENKINS="${JEN[0]}"
-
-        echo "T_JENKINS = $T_JENKINS"
-        echo "T_JOB = $T_JOB"
-        echo "T_RUN = $T_RUN"
-        T_JENKINS=''
-        T_JOB=''
-        T_RUN=''
-        JEN=''
-        SLASHES=''
-        found_job=''
-        #if [[ ! ":$PATH:" == *":/home/mkali/fixtestenv/bin:"* ]]
-        #then
-        #        echo "RUN VITRUTAL INSTALL YOU PLEB"
-        #else
-        #        echo "Source has been set up :)"
-        #fi
-        #
-        #
+        COMMAND=''
 }
 
 gdiff()
@@ -169,6 +140,110 @@ do_debug()
         PURE_TOOLS_REPO=''
         GIT_REPO=''
         WORKDIR=''
+
+}
+
+# Prototype utility for updating an alert probe to a target array
+update_alert_n()
+{
+
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+        TARGET_ALERT=''
+        if [ -z "$1" ]
+        then
+                echo "Error: Please supply an argument flag with function call. (update_alert -h for help)"
+                return 0
+        else
+                case "$1" in
+                        -h|--help)
+                                echo "*** update_alert command: helper for sending alert probe changes to a target array ***"
+                                echo " "
+                                echo "update_alert [option] [args]"
+                                echo " "
+                                echo "options:"
+                                echo "-h, --help                show brief help"
+                                echo "-t, --testbed             set the target testbed array"
+                                echo "-u, --update              send [ARG] glert files.  A target probe must be specified as an argument (e.g. drive_probe)"
+                                echo " ******* "
+                                echo " "
+                                return 0
+                                ;;
+                        -t|--testbed)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$TARGET_ARRAY" ]
+                                        then
+                                                echo "Please provide an array to update."
+                                                return 1
+                                        fi
+                                        echo "Current target array is $TARGET_ARRAY"
+                                        return 0
+                                fi
+                                TARGET_ARRAY="$2"
+                                TARGET_ARRAY=${TARGET_ARRAY#"lp-"}
+
+                                echo "Setting target testbed array to $TARGET_ARRAY"
+                                return 0
+                                ;;
+                        -u|--update)
+                                if [ -z "$2" ]
+                                then
+                                        echo "Please provide the alert to update. (e.g. drive_probe)"
+                                        return 1
+                                fi
+                                TARGET_ALERT="$2"
+                                echo "Sending alert $TARGET_ALERT"
+                                ;;
+                        *)
+                                echo "Invalid argument flag passed.  Use -h for options"
+                                return 1
+                                ;;
+                esac
+        fi
+
+        if [ -z "TARGET_ARRAY" ]
+        then
+                echo "Error: Target array must be set.  Run update_alert -t [array]."
+                return 1
+        fi
+
+        CONTROLLER_0="$TARGET_ARRAY-ct0"
+        CONTROLLER_1="$TARGET_ARRAY-ct1"
+
+        TARGET_FILE_ARRAY=()
+        TARGET_FILE_ARRAY+=("/home/mkali/work/purity/tools/pure/alert/monitor/$TARGET_ALERT.py")
+        TARGET_FILE_ARRAY+=("home/mkali/work/purity/tools/pure/alert/monitor/test/$TARGET_ALERT_test.py")
+        TARGET_FILE_ARRAY+=("home/mkali/work/purity/tools/pure/alert/monitor/monitor.py")
+
+        TARGET_FILE_DEST_ARRAY=()
+        TARGET_FILE_DEST_ARRAY+=("/usr/lib/python3/dist-packages/pure/alert/monitor/$TARGET_ALERT.py")
+        TARGET_FILE_DEST_ARRAY+=("/usr/lib/python3/dist-packages/pure/alert/monitor/test/$TARGET_ALERT_test.py")
+        TARGET_FILE_DEST_ARRAY+=("/usr/lib/python3/dist-packages/pure/alert/monitor/monitor.py")
+
+        CT_ARRAY=( "$TARGET_ARRAY-ct0" "$TARGET_ARRAY-ct1" )
+        CMD_ARRAY=()
+        echo "Building cmds"
+        for ct in "${TARGET_CONTROLLERS[@]}"
+        do
+                for ((idx=0; idx<${#TARGET_FILE_ARRAY[@]}; ++idx));
+                do
+                        CUR_CMD="scp ${TARGET_FILE_ARRAY[idx]} root@$ct:${TARGET_FILE_DEST_ARRAY[idx]}"
+                        echo "Adding $CUR_CMD"
+                        CMD_ARRAY+=("$CUR_CMD")
+                done
+        done
+        CUR_CMD=''
+
+        echo "Running commands"
+
+        CONTROLLER_0=''
+        CONTROLLER_1=''
+        CT_ARRAY=''
+        CMD_ARRAY=''
+        TARGET_FILE_ARRAY=''
+        TARGET_FILE_DEST_ARRAY=''
+        TARGET_ALERT=''
 
 }
 
@@ -289,6 +364,7 @@ update_libs()
                                 echo "-a, --all                 update all purity libraries.  This option takes a while."
                                 echo "-s, --specific-lib        update specific libraries. (for ex: 'hw ha')"
                                 echo "-b, --specific-binary     update specific binaries.  (ex: 'foed platform_framework')"
+                                echo "-db, --debug              set debug build.  (ex: '-db 0' to unset or '-db 1' to set)"
                                 echo " ******* "
                                 return 0
                                 ;;
@@ -385,6 +461,32 @@ update_libs()
                                         BIN_CMD='true'
                                 fi
                                 ;;
+                        -db|--debug)
+                                if [ -z "$2" ]
+                                then
+                                        if [ -z "$DEBUG_BUILD_FLAG" ]
+                                        then
+                                                echo "Debug build status is currently 'false'"
+                                        else
+                                                echo "Debug build status is currently '$DEBUG_BUILD_FLAG'"
+                                        fi
+                                        return 0
+                                else
+                                        if [ $2 == 0 ]
+                                        then
+                                                echo "Debug build disabled"
+                                                DEBUG_BUILD_FLAG="false"
+                                        elif [ $2 == 1 ]
+                                        then
+                                                echo "Debug build enabled"
+                                                DEBUG_BUILD_FLAG="true"
+                                        else
+                                                echo "Invalid input (use 0 or 1)"
+                                                return 1
+                                        fi
+                                fi
+                                return 0
+                                ;;
                         *)
                                 echo "Invalid argument flag passed.  Pass -h for options."
                                 return 1
@@ -394,15 +496,26 @@ update_libs()
 
         echo "Starting at $CUR_TIME"
 
+        # TODO: make this optional
+        SEND_TO_ARRAY="true"
+
         if [[ $LIB_CMD == "true" ]]
         then
-                make_libs
-                send_libs
+                make_libs_docker
+
+                if [[ $SEND_TO_ARRAY == "true" ]]
+                then
+                        send_libs
+                fi
         fi
         if [[ $BIN_CMD == "true" ]]
         then
-                make_bins
-                send_bins
+                #make_bins_docker
+                echo "Make BINs currently not supported, bring it up with your union rep :("
+                if [[ $SEND_TO_ARRAY == "true" ]]
+                then
+                        echo "Haven't implemented the send_to_array, deal with it"
+                fi
         fi
 
         # Clean all variables
@@ -415,7 +528,86 @@ update_libs()
         #TARGET_ARRAY=''
 }
 
-make_libs()
+make_libs_docker()
+{
+        # To change make optimization flags goto purity base directory and run
+        # ppremake.sh with the desired flags.
+        # Ex: ./ppremake.sh --cc=gcc --optimize=3
+        # TODO: make this into it's own separate cmd option?
+        if [ -z "$LIBS_ARRAY" ]
+        then
+                echo "No libs array provided, compiling the default list"
+                LIBS_ARRAY=( "ha" "hw" "bdev" "storage" "reset" "header" )
+                CLEAN="true"
+        fi
+
+        get_docker_devel_id
+
+        if [ -z "$DOCKER_DEVEL_ID" ]
+        then
+                echo "No docker devel env created yet, plz create it and try again"
+                echo "Hint: Run 'pb devel base' and './ppremake'"
+                exit 1
+        fi
+
+        DOCKER_LIB_BUILD_DIR="/build/src/bld_linux/purity"
+        DOCKER_LIB_DEST_DIR="/build/src/bld_linux/purity/lib"
+        LOCAL_LIB_DEST_DIR="/home/mkali/work/bld_linux/purity/lib"
+
+        LIB_TYPE="Release"
+        if [[ $DEBUG_BUILD_FLAG == "true" ]]
+        then
+                LIB_TYPE="Debug"
+        fi
+
+        for IDX in "${!LIBS_ARRAY[@]}"
+        do
+                CUR_LIB="${LIBS_ARRAY[$IDX]}"
+                TARGET_LIB="$CUR_LIB-$LIB_TYPE"
+                echo "Compiling: $TARGET_LIB"
+                CMD="ninja -j 160 -C $DOCKER_LIB_BUILD_DIR $TARGET_LIB"
+                DOCKER_CMD="docker exec -it $DOCKER_DEVEL_ID sh -c \"$CMD\""
+
+                echo " - $DOCKER_CMD"
+                # Use eval b/c of inner quotations
+                eval $DOCKER_CMD
+
+                # copy to normal ouptut file
+                OUTPUT_LIB="lib$CUR_LIB.so"
+                CPY_CMD="docker cp 9ac9e580ef41:$DOCKER_LIB_DEST_DIR/$OUTPUT_LIB $LOCAL_LIB_DEST_DIR/"
+                echo " - $CPY_CMD"
+                $CPY_CMD
+
+                if [[ $DEBUG_BUILD_FLAG == "true" ]]
+                then
+                        # IF debug flag is set, we need to append 'D' to the library name
+                        LIBS_ARRAY[$IDX]="$CUR_LIB""D"
+                fi
+        done
+
+        echo "Done compiling all libraries"
+
+        if [[ $CLEAN == "true" ]]
+        then
+                echo "Cleaning LIBS_ARRAY"
+                LIBS_ARRAY=''
+        fi
+        LIB_TYPE=''
+        CUR_LIB=''
+        DOCKER_LIB_BUILD_DIR=''
+        DOCKER_LIB_DEST_DIR=''
+        LOCAL_LIB_DEST_DIR=''
+        TARGET_LIB=''
+        OUTPUT_LIB=''
+        CMD=''
+        CPY_CMD=''
+        CLEAN=''
+ # **** 
+}
+
+# DEPRECIATED, this method builds locally.  Until local build dependencies are resolved, we can't use
+# this method anymore
+make_libs_local()
 {
         # To change make optimization flags goto purity base directory and run
         # ppremake.sh with the desired flags.
@@ -431,14 +623,26 @@ make_libs()
 
         LIB_OUTPUT_DIR="/home/mkali/work/bld_linux/purity/"
 
-        for CUR_LIB in "${LIBS_ARRAY[@]}"
+        LIB_TYPE="Release"
+        if [[ $DEBUG_BUILD_FLAG == "true" ]]
+        then
+                LIB_TYPE="Debug"
+        fi
+
+        for IDX in "${!LIBS_ARRAY[@]}"
         do
-                TARGET_LIB="$CUR_LIB-Release"
+                CUR_LIB="${LIBS_ARRAY[$IDX]}"
+                TARGET_LIB="$CUR_LIB-$LIB_TYPE"
                 echo "Compiling: $TARGET_LIB"
                 CMD="ninja -j 10 -C $LIB_OUTPUT_DIR $TARGET_LIB"
 
-                # echo " - $CMD"
+                echo " - $CMD"
                 $CMD
+                if [[ $DEBUG_BUILD_FLAG == "true" ]]
+                then
+                        # IF debug flag is set, we need to append 'D' to the library name
+                        LIBS_ARRAY[$IDX]="$CUR_LIB""D"
+                fi
         done
 
         echo "Done compiling all libraries"
@@ -448,6 +652,7 @@ make_libs()
                 echo "Cleaning LIBS_ARRAY"
                 LIBS_ARRAY=''
         fi
+        LIB_TYPE=''
         CUR_LIB=''
         TARGET_LIB=''
         CMD=''
@@ -466,6 +671,7 @@ make_bins()
                 return
         fi
 
+        # TODO: use DEBUG_BUILD_FLAG to enable debug binaries
 
         LIB_OUTPUT_DIR="/home/mkali/work/bld_linux/purity/"
 
@@ -501,10 +707,15 @@ send_libs()
         #        echo "ERROR: Please supply a target array"
         #        return 1
         #fi
+        TARGET_ARRAY_IS_VM='false'
         if [ -z "$TARGET_ARRAY" ]
         then
                 echo "ERROR: TARGET_ARRAY variable must be set"
                 return 1
+        else
+                if echo "$TARGET_ARRAY" | grep -q "vm"; then
+                        TARGET_ARRAY_IS_VM='true'
+                fi
         fi
 
         if [ -z "$LIBS_ARRAY" ]
@@ -527,14 +738,22 @@ send_libs()
         for CUR_LIB in "${LIBS_ARRAY[@]}"
         do
                 TARGET_FILE="lib$CUR_LIB.so"
-                echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
-                CMD_1="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_0:$TARGET_LIB_DIR"
-                CMD_2="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_1:$TARGET_LIB_DIR"
+                if [[ $TARGET_ARRAY_IS_VM == "true" ]]
+                then
+                        echo "Sending '$TARGET_FILE' to '$TARGET_ARRAY'"
+                        CMD="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$TARGET_ARRAY:$TARGET_LIB_DIR"
+                        echo "Calling: $CMD"
+                        $CMD
+                else
+                        echo "Sending '$TARGET_FILE' to '$CONTROLLER_0' and '$CONTROLLER_1'"
+                        CMD_1="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_0:$TARGET_LIB_DIR"
+                        CMD_2="scp $SOURCE_LIB_DIR/$TARGET_FILE root@$CONTROLLER_1:$TARGET_LIB_DIR"
 
-                echo "Calling: $CMD_1"
-                echo "Calling: $CMD_2"
-                $CMD_1
-                $CMD_2
+                        echo "Calling: $CMD_1"
+                        echo "Calling: $CMD_2"
+                        $CMD_1
+                        $CMD_2
+                fi
         done
 
         echo "Done."
@@ -546,6 +765,7 @@ send_libs()
         CLEAN=''
         CUR_LIB=''
         TARGET_FILE=''
+        TARGET_ARRAY_IS_VM=''
         #TARGET_ARRAY=''
         CONTROLLER_0=''
         CONTROLLER_1=''
@@ -752,10 +972,14 @@ run()
                                         IS_FAIL_LINE="true"
                                         TEST_CASE=''
                                         OPEN_LOG_FILE="true"
-                                        TEST_CASE="${line##* }"
-                                        TEST_CASE=${TEST_CASE%^*}
+                                        #echo "Cur line = $line"
+                                        LINE_AR=( $line )
+                                        #TEST_CASE=${LINE_AR[5]}
+                                        TEST_CASE=${LINE_AR[-1]}
+                                        #TEST_CASE="${line##* }"
+                                        #TEST_CASE=${TEST_CASE%^*}
                                         TEST_CASES+=("$TEST_CASE")
-
+                                        LINE_AR=''
                                 fi
                                 if [[ "$word" =~ "ERROR" ]]
                                 then
@@ -792,9 +1016,11 @@ run()
                 if [ ${#TEST_CASES[@]} == "1" ]
                 then
                         #LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
+                        FILE_SUFF="failed.stdout"
                         TEST_CASE="${TEST_CASES[0]}"
-                        FIND_FILE_CMD="find $PLAN -name *.stdout | grep --color=never -e $TEST_CASE"
+                        FIND_FILE_CMD="find $PLAN -name *$FILE_SUFF | grep --color=never -e $TEST_CASE"
                         LOG_FILE="$(eval $FIND_FILE_CMD)"
+                        echo "finding log file from: find $PLAN -name *$FILE_SUFF | grep -e $TEST_CASE"
                         echo "Opening log file: $LOG_FILE"
                         vi $LOG_FILE
                 else
@@ -841,7 +1067,8 @@ run()
                                 (( choice-- ))
 
                                 TEST_CASE="${TEST_CASES[choice]}"
-                                FIND_FILE_CMD="find $PLAN -name *.stdout | grep --color=never -e $TEST_CASE"
+                                #FIND_FILE_CMD="find $PLAN -name *.stdout | grep --color=never -e $TEST_CASE"
+                                FIND_FILE_CMD="find $PLAN -name *$FILE_SUFF | grep --color=never -e $TEST_CASE"
                                 LOG_FILE="$(eval $FIND_FILE_CMD)"
 
                                 # Rather than opening a new vi file, throw error message if file couldn't be found
@@ -1226,10 +1453,15 @@ rlog()
                 REMOTE_CONTROLLER="-ct1"
         fi
 
-        # Bark about bad input
-        if [ \( "$REMOTE_CONTROLLER" != "-ct0" \) -a \( "$REMOTE_CONTROLLER" != "-ct1" \) ]
+        if [ \( "$REMOTE_CONTROLLER" == "v" \) -o \( "$REMOTE_CONTROLLER" == "vm" \) ]
         then
-                echo "ERROR: [ $REMOTE_CONTROLLER ] is a bad input for controller target.  Specify '0, ct0' or '1, ct1' for controls 0 and 1 respectively"
+                REMOTE_CONTROLLER="virtual"
+        fi
+
+        # Bark about bad input
+        if [ \( "$REMOTE_CONTROLLER" != "-ct0" \) -a \( "$REMOTE_CONTROLLER" != "-ct1" \) -a \( "$REMOTE_CONTROLLER" != "virtual" \) ]
+        then
+                echo "ERROR: [ $REMOTE_CONTROLLER ] is a bad input for controller target.  Specify '0, ct0' or '1, ct1' for controls 0 and 1 respectively, or 'v' 'vm' for a virtual target"
                 return 1
         fi
 
@@ -1242,12 +1474,18 @@ rlog()
                 REMOTE_FILE_IS_GZ='false'
         fi
 
+        if [ "$REMOTE_CONTROLLER" == "virtual" ]
+        then
+                REMOTE_CONTROLLER=""
+        fi
 
         if [ "$REMOTE_FILE_IS_GZ" = true ]
         then
-                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                #COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'zcat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
         else
-                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                #COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | grep -v flut | vi - -c ':set colorcolumn='"
+                COMMAND="ssh root@$REMOTE_TARGET$REMOTE_CONTROLLER 'cat $REMOTE_LOG_DIR/$REMOTE_TARGET_FILE' | vi - -c ':set colorcolumn='"
         fi
         #ssh root@d107-3-ct0 'zcat /var/log/purity/platform.log.gz' | vi -
 
