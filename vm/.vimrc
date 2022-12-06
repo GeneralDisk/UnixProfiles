@@ -130,4 +130,8 @@ set pastetoggle=<f6>
 
 nnoremap <C-h> :set colorcolumn=<return>
 
+" Command Aliases
+" Fugitive 'Git blame' alias
+command Gblame Git<space>blame
+
 

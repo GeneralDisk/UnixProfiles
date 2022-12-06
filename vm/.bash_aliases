@@ -13,6 +13,11 @@ alias boot='cd ~/work/purity/kernel/bootcamp'
 alias log='cd /mnt/cluster_nfs/'
 alias tri='cd ~/work/triage/'
 alias tlog_ini='sudo mount -t nfs -o tcp data.dogfood-newspaper.dev.purestorage.com:/tlogs /home/mkali/work/logs/tlogs; sudo mount -t nfs -o tcp data.dogfood-lambchop.dev.purestorage.com:/df-ci-logs /home/mkali/work/logs/archive'
+alias cur_pytest='pytest --testbed vm-mkali tests/core/functional/ndu/test_ndu_oxygen.py --reset --test-only --ac-config /home/mkali/work/purity/tools/tests/core/torture/altered_carbon_configs/platinum_xenon_dnvr.cfg -v'
+alias build_ppkg='python2 /home/mkali/work/phtest/phtest/phtest post --extra_params="BUILD_TARGET=ppkg" p_flow'
+alias build_iso='python2 /home/mkali/work/phtest/phtest/phtest post --extra_params="BUILD_TARGET=iso" p_flow'
+alias pht='python2 /home/mkali/work/phtest/phtest/phtest'
+
 #alias print_freq_diags='python /home/mkali/work/purity/tools/pure/alert/tools/print_freq_diags.py'
 alias print_freq_diags='/home/mkali/work/pure_support/pure_tools/pure_support/pure_support/underground/print_freq_diags.py'
 # git aliases
@@ -44,8 +49,8 @@ alias pbs='python /home/mkali/work/pbs/performance/automation/bs.py'
 # alias orch='PYTHONPATH=${PURE_TOOLS}/.. ${PURE_TOOLS}/ci/mockingbird/webapps/orchestrator/cli/orchestrator.py'
 #alias set_orch_virtural_source="source ~/work/orchestratorenv/bin/activate"
 alias set_orch_virtual_source="workon orchestrator"
-alias orch_update="pip install -U orchestrator-client"
-alias orch='orchestrator'
+alias orch_update="python3.6 -m pip install -U orchestrator-client"
+alias orch='python3.6 /home/mkali/.virtualenvs/orchestrator/bin/orchestrator'
 
 # SSH alias for paws aws instances.  Use like ssh cmd
 alias sshp='ssh -i $PAWS_SSH_KEY'

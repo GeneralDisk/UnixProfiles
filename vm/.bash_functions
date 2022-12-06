@@ -111,7 +111,7 @@ gdiff()
 
         echo "Comparing local branch to $TARGET_BRANCH.\nIf you are rebasing, there should be no lines <\n"
         echo "Important: < are commits in $TARGET_BRANCH that aren't in HEAD, > are the opposite."
-        echo "Calling: diff <(git log --oneline HEAD..@{u}| cut -d ' ' -f 2-) <(git log --oneline @{u}..HEAD | cut -d ' ' -f 2-)"
+        echo "Calling: diff <(git log --oneline HEAD..$TARGET_BRANCH | cut -d ' ' -f 2-) <(git log --oneline $TARGET_BRANCH..HEAD | cut -d ' ' -f 2-)"
 
         diff <(git log --oneline HEAD..$TARGET_BRANCH | cut -d ' ' -f 2-) <(git log --oneline $TARGET_BRANCH..HEAD | cut -d ' ' -f 2-)
 
@@ -141,6 +141,37 @@ do_debug()
         GIT_REPO=''
         WORKDIR=''
 
+}
+
+# util for updating random files
+update_rfiles()
+{
+        if [ -z "$1" ]
+        then
+                echo "Error: please supply an array name"
+                return 0
+        fi
+
+        echo "Sending random (plz edit the scrip to change) files to $1"
+
+        CMD_ARR=()
+        CMD_ARR+=("scp tools/pure/health_check/oxygen/oxygen_ndu_physical_check.py root@$1:/opt/Purity/bin/oxygen_ndu_physical_check.py")
+        CMD_ARR+=("scp tools/pure/health_check/oxygen/oxygen_ndu_physical_check.py root@$1:/usr/lib/python3/dist-packages/pure/health_check/oxygen/oxygen_ndu_physical_check.py")
+        CMD_ARR+=("scp tools/pure/health_check/oxygen/oxygen_ndu_health_check.py root@$1:/opt/Purity/bin/oxygen_ndu_health_check.py")
+        CMD_ARR+=("scp tools/pure/health_check/oxygen/oxygen_ndu_health_check.py root@$1:/usr/lib/python3/dist-packages/pure/health_check/oxygen/oxygen_ndu_health_check.py")
+        CMD_ARR+=("scp tools/pure/ndu_tools/chassis_pre_ndu_setup root@$1:/opt/Purity/bin/chassis_pre_ndu_setup")
+        CMD_ARR+=("scp tools/pure/ndu_tools/chassis_pre_ndu_setup root@$1:/usr/lib/python3/dist-packages/pure/ndu_tools/chassis_pre_ndu_setup")
+
+        CMD_ARR+=("scp tools/pure/ndu_tools/remote_nvram_switch root@$1:/opt/Purity/bin/remote_nvram_switch")
+        CMD_ARR+=("scp tools/pure/ndu_tools/remote_nvram_switch root@$1:/usr/lib/python3/dist-packages/pure/ndu_tools/remote_nvram_switch")
+        for var in "${CMD_ARR[@]}"
+        do
+                echo "Sending $var"
+                $var
+        done
+
+        var=''
+        CMD_ARR=''
 }
 
 # Prototype utility for updating an alert probe to a target array
@@ -510,11 +541,11 @@ update_libs()
         fi
         if [[ $BIN_CMD == "true" ]]
         then
-                #make_bins_docker
-                echo "Make BINs currently not supported, bring it up with your union rep :("
+                make_bins_docker
+
                 if [[ $SEND_TO_ARRAY == "true" ]]
                 then
-                        echo "Haven't implemented the send_to_array, deal with it"
+                        send_bins
                 fi
         fi
 
@@ -574,7 +605,7 @@ make_libs_docker()
 
                 # copy to normal ouptut file
                 OUTPUT_LIB="lib$CUR_LIB.so"
-                CPY_CMD="docker cp 9ac9e580ef41:$DOCKER_LIB_DEST_DIR/$OUTPUT_LIB $LOCAL_LIB_DEST_DIR/"
+                CPY_CMD="docker cp $DOCKER_DEVEL_ID:$DOCKER_LIB_DEST_DIR/$OUTPUT_LIB $LOCAL_LIB_DEST_DIR/"
                 echo " - $CPY_CMD"
                 $CPY_CMD
 
@@ -602,7 +633,7 @@ make_libs_docker()
         CMD=''
         CPY_CMD=''
         CLEAN=''
- # **** 
+ # ****
 }
 
 # DEPRECIATED, this method builds locally.  Until local build dependencies are resolved, we can't use
@@ -657,6 +688,76 @@ make_libs_local()
         TARGET_LIB=''
         CMD=''
         CLEAN=''
+}
+make_bins_docker()
+{
+        # To change make optimization flags goto purity base directory and run
+        # ppremake.sh with the desired flags.
+        # Ex: ./ppremake.sh --cc=gcc --optimize=3
+        # TODO: make this into it's own separate cmd option?
+        if [ -z "$BIN_ARRAY" ]
+        then
+                echo "No binary array provided, exiting"
+                return
+        fi
+
+        get_docker_devel_id
+
+        if [ -z "$DOCKER_DEVEL_ID" ]
+        then
+                echo "No docker devel env created yet, plz create it and try again"
+                echo "Hint: Run 'pb devel base' and './ppremake'"
+                exit 1
+        fi
+
+        DOCKER_BIN_BUILD_DIR="/build/src/bld_linux/purity"
+        DOCKER_BIN_DEST_DIR="/build/src/bld_linux/purity/bin"
+        LOCAL_BIN_DEST_DIR="/home/mkali/work/bld_linux/purity/bin"
+
+        BIN_TYPE="Release"
+        if [[ $DEBUG_BUILD_FLAG == "true" ]]
+        then
+                BIN_TYPE="Debug"
+        fi
+
+        for IDX in "${!BIN_ARRAY[@]}"
+        do
+                CUR_BIN="${BIN_ARRAY[$IDX]}"
+                TARGET_BIN="$CUR_BIN-$BIN_TYPE"
+                echo "Compiling: $TARGET_BIN"
+                CMD="ninja -j 160 -C $DOCKER_BIN_BUILD_DIR $TARGET_BIN"
+                DOCKER_CMD="docker exec -it $DOCKER_DEVEL_ID sh -c \"$CMD\""
+
+                echo " - $DOCKER_CMD"
+                # Use eval b/c of inner quotations
+                eval $DOCKER_CMD
+
+                # copy to normal ouptut file
+                OUTPUT_BIN="$CUR_BIN"
+                CPY_CMD="docker cp $DOCKER_DEVEL_ID:$DOCKER_BIN_DEST_DIR/$OUTPUT_BIN $LOCAL_BIN_DEST_DIR/"
+                echo " - $CPY_CMD"
+                $CPY_CMD
+
+        done
+
+        echo "Done compiling all libraries"
+
+        if [[ $CLEAN == "true" ]]
+        then
+                echo "Cleaning LIBS_ARRAY"
+                BIN_ARRAY=''
+        fi
+        BIN_TYPE=''
+        CUR_BIN=''
+        DOCKER_BIN_BUILD_DIR=''
+        DOCKER_BIN_DEST_DIR=''
+        LOCAL_BIN_DEST_DIR=''
+        TARGET_BIN=''
+        OUTPUT_BIN=''
+        CMD=''
+        CPY_CMD=''
+        CLEAN=''
+ # ****
 }
 
 make_bins()
@@ -1016,7 +1117,7 @@ run()
                 if [ ${#TEST_CASES[@]} == "1" ]
                 then
                         #LOG_FILE="$PLAN/${TEST_CASE}__${TASK}__failed.stdout"
-                        FILE_SUFF="failed.stdout"
+                        FILE_SUFF="runner.out"
                         TEST_CASE="${TEST_CASES[0]}"
                         FIND_FILE_CMD="find $PLAN -name *$FILE_SUFF | grep --color=never -e $TEST_CASE"
                         LOG_FILE="$(eval $FIND_FILE_CMD)"
@@ -1503,6 +1604,14 @@ rlog()
 pfind()
 {
         FILE_EXTENSIONS="h,cpp,py,java"
+        SPECIFIC_EXCLUSIONS=( "populate.py" "diagnostics_versions.py" )
+        EXCLUSION_STR=''
+        for var in "${SPECIFIC_EXCLUSIONS[@]}"
+        do
+                EXCLUSION_STR="--exclude=$var $EXCLUSION_STR"
+        done
+        var=''
+
         CUR_DIR=$(pwd)
         OPEN_FILE=false
         OPTION_COUNTER=0
@@ -1563,7 +1672,8 @@ pfind()
                                 # result
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                # KALI: expand exclusions
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -1573,7 +1683,7 @@ pfind()
                                 GLOB_EXP=''
                                 ;;
                         -ga|--grep-all)
-                                COMMAND_STR="grep --color -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -1584,7 +1694,7 @@ pfind()
                                 FILE_EXTENSIONS+=",log"
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -1599,7 +1709,7 @@ pfind()
                                 FILE_EXTENSIONS+=",config"
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -1774,6 +1884,8 @@ pfind()
         fi
 
         FILE_EXTENSIONS=''
+        SPECIFIC_EXCLUSIONS=''
+        EXCLUSION_STR=''
         COMMAND_STR=''
         FIRST_C_ARG=''
         LAST_C_ARG=''
@@ -1931,3 +2043,21 @@ ptest()
         AC_TARGET_VM=""
         #virtual_uninstall; #activate this if you want to hide the sourcing agent
 }
+
+# Function to get a passed range of commits as nice copy-pastable lines for excel or google sheets
+get_pastable_commit_lines()
+{
+
+
+        if [ -z "$2" ]
+        then
+                echo "Error: You must supply a git range"
+                echo "Usage: get_pastable_commit_lines hash_exclusive_start hash_inclusive_end"
+                return 1
+        fi
+
+        echo "Getting pastable git log lines for the provided range ($1 - $2]"
+
+        # CMD_STR="git log --oneline --pretty=format:"%h%x09%an%x09%s" --ancestry-path 3d247a2f7b0..e13706332243
+}
+
