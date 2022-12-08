@@ -30,7 +30,6 @@ cp $DIR/mac/.bash_functions $DEST_DIR
 cp $DIR/mac/.bash_logout $DEST_DIR
 cp $DIR/mac/.bashrc $DEST_DIR
 cp $DIR/mac/.vimrc $DEST_DIR
-cp $DIR/mac/pack_mac_p_files.sh $DEST_DIR
 
 NEW_MAC_SETUP="$DIR/mac/new_mac_setup.sh"
 echo "Copying $NEW_MAC_SETUP to $DEST_DIR, if this is your first unpack on a new machine, be sure to run the script to do a lot of basic setup"
