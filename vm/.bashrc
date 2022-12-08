@@ -109,6 +109,22 @@ if [ -f ~/.bash_functions ]; then
     . ~/.bash_functions
 fi
 
+# Load shared definitions
+## Source all shareed functions.
+SHARED_FUNCTION_FOLDER="$HOME/UnixProfiles/shared"
+source_shared_functions()
+{
+        if [ -d $SHARED_FUNCTION_FOLDER ];
+        then
+                source $SHARED_FUNCTION_FOLDER/.fun_pfind
+                source $SHARED_FUNCTION_FOLDER/.fun_rlog
+                source $SHARED_FUNCTION_FOLDER/.fun_tlog
+        else
+                echo "$SHARED_FUNCTION_FOLDER does not exist.  Please fix it the path in .bashrc"
+        fi
+}
+source_shared_functions
+
 # Set Envoronment Variables
 set_pb_vars() {
     PURITY_SRC=$(git rev-parse --show-toplevel 2>/dev/null);

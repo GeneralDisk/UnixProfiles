@@ -10,12 +10,16 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 
 # Source all shareed functions.
 SHARED_FUNCTION_FOLDER="$HOME/UnixProfiles/shared"
-echo "NOTE: if $SHARED_FUNCTION_FOLDER is not the correct directory, you may have to correct it in .bash_profile"
 source_shared_functions()
 {
-        source $SHARED_FUNCTION_FOLDER/.fun_pfind
-        source $SHARED_FUNCTION_FOLDER/.fun_rlog
-        source $SHARED_FUNCTION_FOLDER/.fun_tlog
+        if [ -d $SHARED_FUNCTION_FOLDER ];
+        then
+                source $SHARED_FUNCTION_FOLDER/.fun_pfind
+                source $SHARED_FUNCTION_FOLDER/.fun_rlog
+                source $SHARED_FUNCTION_FOLDER/.fun_tlog
+        else
+                echo "$SHARED_FUNCTION_FOLDER does not exist.  Please fix it in .bash_profile"
+        fi
 }
 
 source_shared_functions

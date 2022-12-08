@@ -5,7 +5,15 @@
 
 pfind()
 {
-        FILE_EXTENSIONS="h,cpp,py,java"
+	FILE_EXTENSIONS="h,cpp,py,java"
+        SPECIFIC_EXCLUSIONS=( "populate.py" "diagnostics_versions.py" )
+        EXCLUSION_STR=''
+        for var in "${SPECIFIC_EXCLUSIONS[@]}"
+        do
+                EXCLUSION_STR="--exclude=$var $EXCLUSION_STR"
+        done
+        var=''
+
         CUR_DIR=$(pwd)
         OPEN_FILE=false
         OPTION_COUNTER=0
@@ -66,7 +74,8 @@ pfind()
                                 # result
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                # KALI: expand exclusions
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -76,7 +85,7 @@ pfind()
                                 GLOB_EXP=''
                                 ;;
                         -ga|--grep-all)
-                                COMMAND_STR="grep --color -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -87,7 +96,7 @@ pfind()
                                 FILE_EXTENSIONS+=",log"
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -102,7 +111,7 @@ pfind()
                                 FILE_EXTENSIONS+=",config"
                                 GLOB=--include=\*.{$FILE_EXTENSIONS}
                                 GLOB_EXP=$(eval echo $GLOB)
-                                COMMAND_STR="grep --color $GLOB_EXP -rnw $CUR_DIR -e"
+                                COMMAND_STR="grep --color $GLOB_EXP $EXCLUSION_STR -rn $CUR_DIR -e"
                                 ((OPTION_COUNTER++))
                                 MULTI_OPTION_SUPPORT=false
                                 GRAB_NEXT_CMD_ARG=true
@@ -277,6 +286,8 @@ pfind()
         fi
 
         FILE_EXTENSIONS=''
+        SPECIFIC_EXCLUSIONS=''
+        EXCLUSION_STR=''
         COMMAND_STR=''
         FIRST_C_ARG=''
         LAST_C_ARG=''
