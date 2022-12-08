@@ -4,7 +4,11 @@ alias ll='ls -al'
 alias ssh_ini='ssh-add -K ~/.ssh/id_rsa; ssh-add -K ~/.ssh/id_pure_root'
 alias vm='reset; ssh -t vm "cd work/purity; bash --login"'
 
-alias pure='cd ~/Work/purity'
+# vim alias
+alias vim="mvim -v"
+alias vi="mvim -v"
+
+alias pure='cd ~/work/purity'
 alias python='python3'
 
 alias uz='gunzip *.gz'

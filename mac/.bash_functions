@@ -2,13 +2,6 @@
 
 HOME="/Users/mkali"
 
-source_functions()
-{
-        source $HOME/.fun_pfind
-        source $HOME/.fun_rlog
-        source $HOME/.fun_tlog
-}
-
 # This function clears all known_hosts from our ssh config
 sshclear()
 {
