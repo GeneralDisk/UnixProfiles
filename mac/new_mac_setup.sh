@@ -38,6 +38,10 @@ python ~/.vim/bundle/YouCompleteMe/install.py
 
 echo "Automatic mail migration not supported."
 echo "To migrate mail, plz move rules plists from the library/mail dir (use cmd + shift + . to view)"
+echo "the plist will be in ~/Library/Mail, which you can't access until you grant it Full Disk Access (in Security & Privacy menu)"
+echo "Check your Drive, that's where you usually store the proper plist files"
+echo "known dir ~/Library/Mail/v9/MailData"
+echo "known files: FlagMailboxes.plist, RulesActiveState.plist, SyncedRules.plist, SyncedSmartMailboxes.plist"
 echo ""
 
 

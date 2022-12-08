@@ -31,6 +31,14 @@ cp $DIR/mac/.bash_logout $DEST_DIR
 cp $DIR/mac/.bashrc $DEST_DIR
 cp $DIR/mac/.vimrc $DEST_DIR
 
+if [ -d $DEST_DIR/.ssh ];
+then
+        echo "Copying ssh config file to $DEST_DIR/.ssh"
+        cp $DIR/mac/.ssh/config $DEST_DIR/.ssh/config
+else
+        echo "Skipping .ssh config file copy since .ssh does not exist"
+fi
+
 NEW_MAC_SETUP="$DIR/mac/new_mac_setup.sh"
 echo "Copying $NEW_MAC_SETUP to $DEST_DIR, if this is your first unpack on a new machine, be sure to run the script to do a lot of basic setup"
 cp $NEW_MAC_SETUP $DEST_DIR
