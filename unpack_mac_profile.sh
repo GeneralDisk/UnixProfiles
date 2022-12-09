@@ -28,6 +28,7 @@ echo "Copying MAC Profile files to $DEST_DIR"
 cp $DIR/mac/.bash_aliases $DEST_DIR
 cp $DIR/mac/.bash_functions $DEST_DIR
 cp $DIR/mac/.bash_logout $DEST_DIR
+cp $DIR/mac/.bash_profile $DEST_DIR
 cp $DIR/mac/.bashrc $DEST_DIR
 cp $DIR/mac/.vimrc $DEST_DIR
 

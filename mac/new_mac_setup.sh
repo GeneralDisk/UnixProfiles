@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# TODO: separate into arg calls with helper function
+# Arg 1: brew install, recommend opening new windows until new highlights seen
+# Arg 2: Run all brew commands. Recommend opening new window
+# Arg 3 vim and mvim plugin installs, ycm install
+
 echo "Starting new mac setup"
 cd
 
@@ -27,11 +32,16 @@ echo " - Installing macvim"
 brew install macvim
 #brew install macvim --with-override-system-vim
 
+# Need to install vundle directly
+git clone https://github.com/gmarik/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+
 echo "Installing VIM plugins"
 vim +PluginInstall +qall
 mvim -v +PluginInstall +qall
 
 echo " - compiling ycm"
+## NOTE: you may need to reinstall python if this fails (run with --verbose)
+# ex: 'brew reinstall python3' then reopen the window
 python ~/.vim/bundle/YouCompleteMe/install.py
 
 # **** EXTRA look up moving all the mac mail files
