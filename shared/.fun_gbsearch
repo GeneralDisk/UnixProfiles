@@ -1,0 +1,88 @@
+# Utility for searching for a string in all local git branchs' commit histories
+#
+# Author: Maris Kali
+# Copyright: You steal my shit without asking and I will fuck you up.  All rights reserved.
+
+gbsearch()
+{
+        # Process arguments
+        # TODO: make this actually parse args intelligently
+        if [ "$#" -eq 0 ] || [ "$#" -gt 2 ]; then
+                echo -e "\e[31mERROR: Expected 1 or 2 arguments, not $#"
+                echo -e "\e[33mUsage:"
+                echo "gbsearch [search_str] [num_hashes=5](optional)"
+                return 1
+        fi
+
+        SEARCHING_FOR="$1"
+        if [ -z $2 ];
+        then
+                NUM_ENTRIES=5
+        else
+                re='^[0-9]+$'
+                if ! [[ $2 =~ $re ]] ; then
+                        echo -e "\e[31mERROR: Second argument must be a number!"
+                        return 1
+                fi
+                NUM_ENTRIES=$2
+        fi
+        echo "searching all branches for '$SEARCHING_FOR' to $NUM_ENTRIES entires"
+        # Retrieve a list of hashes and branches
+        CMD_STR="git show-ref --heads"
+        CMD_RES="$(eval $CMD_STR)"
+
+        # Number of log entries to search
+        counter=0
+        IFS=$'\n'; LINES=($CMD_RES); unset IFS;
+        for fl in "${LINES[@]}"; do
+                # For each branch...
+                # split again based on space
+                IFS=$' '; FIELDS=($fl); unset IFS;
+                EXPECTED_FIELDS=2
+                if [[ ${#FIELDS[@]} != $EXPECTED_FIELDS ]]
+                then
+                        # \e[31m is red
+                        echo -e "\e[31mERROR: Expected $EXPECTED_FIELDS items, saw ${#FIELDS[@]} in '$fl'"
+                        return 1
+                fi
+                HASH="${FIELDS[0]}"
+                BRANCH="${FIELDS[1]}"
+                BRANCH_POS="$HASH"
+                FOUND=0
+                RES=""
+                for i in $(seq 1 $NUM_ENTRIES); do
+                        # For each log entry in the branch up to NUM_ENTRIES...
+                        SUB_CMD="git log -n 1 $BRANCH_POS"
+                        RES="$(cat <(eval $SUB_CMD))"
+                        RES_2="$(grep -i "$SEARCHING_FOR" <<< "$RES")"
+                        if [ -n "$RES_2" ]
+                        then
+                                # \e[32m is green, \e[34m is blue
+                                echo -e "\e[34mFound '$SEARCHING_FOR' $i positions from HEAD on $BRANCH"
+                                echo -e "\e[32m$RES"
+                                echo -e "\e[0m"
+                                read -r -p "Is this it? [y/N] " response
+                                case "$response" in [yY][eE][sS]|[yY])
+                                        echo -e "Branch \e[32m$BRANCH \e[0mis what you're looking for \e[33m:D"
+                                        return 0
+                                        ;;
+                                    *)
+                                        echo "Moving on then..."
+                                        ;;
+                                esac
+                        fi
+                        BRANCH_POS+="^"
+                done;
+                echo -e "\e[31mDid not find '$SEARCHING_FOR' within $NUM_ENTRIES from HEAD on $BRANCH"
+        done
+
+        echo -e "\e[31mDid not find '$SEARCHING_FOR' on any local branches \e[33m:("
+        # Clean up
+        HASH=''
+        BRANCH=''
+        EXPECTED_FIELDS=''
+        counter=''
+        CMD_STR=""
+        CMD_STR=""
+        return 1
+}

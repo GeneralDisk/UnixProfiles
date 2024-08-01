@@ -119,6 +119,7 @@ source_shared_functions()
                 source $SHARED_FUNCTION_FOLDER/.fun_pfind
                 source $SHARED_FUNCTION_FOLDER/.fun_rlog
                 source $SHARED_FUNCTION_FOLDER/.fun_tlog
+                source $SHARED_FUNCTION_FOLDER/.fun_gbsearch
         else
                 echo "$SHARED_FUNCTION_FOLDER does not exist.  Please fix it the path in .bashrc"
         fi

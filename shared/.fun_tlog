@@ -10,7 +10,8 @@
 # tlog mounting documentation https://wiki.purestorage.com/display/psw/Mounting+tlogs
 tlog()
 {
-        TLOG_DIR="/Users/mkali/Work/logs/tlogs"
+        #TLOG_DIR="/Users/mkali/Work/logs/tlogs"
+        TLOG_DIR="$WORKSPACE/logs/tlogs"
         DEST_DIR=''
         T_JENKINS=''
         T_JOB=''

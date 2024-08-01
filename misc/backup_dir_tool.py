@@ -10,7 +10,7 @@ CUR_TIME=$(date +'%Y-%m-%d-%T')
 DEST_FILE="backup_$CUR_TIME.zip"
 echo "Packing all files from $CUR_DIR into $DEST_FILE"
 
-zip -r $DEST_FILE *.pages *.numbers *.sh *.sql
+zip -r $DEST_FILE *.pages *.numbers *.sh *.sql *.pdf
 
 echo "Done"
 
