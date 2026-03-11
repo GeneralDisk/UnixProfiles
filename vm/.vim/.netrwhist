@@ -1,0 +1,7 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =5
+let g:netrw_dirhist_1='/home/mkali/work/purity/kernel/bootcamp'
+let g:netrw_dirhist_2='/home/mkali/.ssh'
+let g:netrw_dirhist_3='/home/mkali/work/purity/tools/pure/lib/test'
+let g:netrw_dirhist_4='/mnt/pb/artifacts/plan-1c21cbdc/task-097fa982'
+let g:netrw_dirhist_5='/home/mkali/.vim'

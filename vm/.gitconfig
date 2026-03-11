@@ -1,0 +1,10 @@
+[user]
+	name = Maris Kali
+	email = mkali@purestorage.com
+[reviewboard]
+	url = https://codereviews.purestorage.com
+[push]
+	default = simple
+[commit]
+	tempalte = /home/mkali/work/.git-commit-template.txt
+
